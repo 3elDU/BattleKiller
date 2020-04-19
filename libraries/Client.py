@@ -14,9 +14,16 @@ class Server(Thread):
         self.connected = False
         self.tosend = None
         self.data = None
+        self.alive = True
 
         self.s = socket.socket()
         self.s.setblocking(False)
+
+    def setAlive(self, b):
+        self.alive = b
+
+    def getAlive(self):
+        return self.alive
 
     def connect(self):
         timer = 0
@@ -64,3 +71,6 @@ class Main:
 
     def sendData(self, data):
         self.thread.send(data)
+
+    def stopServer(self):
+        self.thread.setAlive(False)

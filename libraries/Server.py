@@ -17,6 +17,7 @@ class Server(Thread):
         self.data = None
         self.conn = None
         self.addr = None
+        self.alive = True
 
         self.s = socket.socket()
         self.s.setblocking(False)
@@ -37,13 +38,19 @@ class Server(Thread):
         return self.data
 
     def send(self, data):
-        self.data = data
+        self.tosend = data
+
+    def setAlive(self, b):
+        self.alive = b
+
+    def getAlive(self):
+        return self.alive
 
     def run(self):
         self.connect()
         if self.connected:
             self.s.listen(1)
-            while True:
+            while self.alive:
                 try:
                     self.conn, self.addr = self.s.accept()
                     print(self.conn, self.addr)
@@ -51,11 +58,12 @@ class Server(Thread):
                 except socket.error:
                     pass
 
-            while True:
+            while self.alive:
                 try:
                     self.data = self.conn.recv(16384).decode('utf-8')
                     if self.tosend is not None:
                         self.conn.send(self.tosend.encode('utf-8'))
+                        self.tosend = None
                 except socket.error:
                     pass
 
@@ -76,3 +84,6 @@ class Main:
 
     def getData(self):
         pass
+
+    def stopServer(self):
+        self.thread.setAlive(False)

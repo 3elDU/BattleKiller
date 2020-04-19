@@ -1,5 +1,4 @@
 import pygame
-import time
 
 
 class Main:
@@ -71,14 +70,15 @@ class Main:
             while not madeChoice:
                 for i in pygame.event.get():
                     if i.type == pygame.QUIT:
-                        exit()
+                        self.terminate = True
+                        madeChoice = True
                     elif i.type == pygame.KEYDOWN:
                         if i.unicode in acceptedChars[entry_choice]:
                             if entry_choice == 0:
                                 self.ip += i.unicode
                             elif entry_choice == 1:
                                 self.port += i.unicode
-                        elif i.key == pygame.K_LEFT:
+                        if i.key == pygame.K_LEFT:
                             if entry_choice == 0:
                                 entry_choice = 1
                             elif entry_choice == 1:
@@ -107,13 +107,12 @@ class Main:
                 self.t2r = self.t2.get_rect(center=(34 * self.pw, 12 * self.ph))
 
                 self.sc.blit(self.t1, self.t1r)
-                self.sc.blit(self.t1, self.t1r)
+                self.sc.blit(self.t2, self.t2r)
 
                 pygame.display.update()
 
-                print(entry_choice)
-
-            self.msg = Client.Main(self.ip, self.port)
+            if not self.terminate:
+                self.msg = Client.Main(self.ip, int(self.port))
         elif self.choice == 1:
             from libraries import Server
 
@@ -123,13 +122,17 @@ class Main:
             self.ip = data[0]
             self.port = data[1]
 
-            timer = 0
-            starttime = time.perf_counter()
-            while timer <= 10:
+            stopped = False
+
+            while not stopped:
                 for i in pygame.event.get():
                     if i.type == pygame.QUIT:
+                        self.msg.stopServer()
                         self.terminate = True
-                        break
+                        stopped = True
+                    elif i.type == pygame.KEYDOWN:
+                        if i.key == pygame.K_RETURN:
+                            stopped = True
 
                 self.sc.fill((255, 255, 255))
 
@@ -140,19 +143,28 @@ class Main:
                 self.t2r = self.t2.get_rect(center=(34 * self.pw, 12 * self.ph))
 
                 self.sc.blit(self.t1, self.t1r)
-                self.sc.blit(self.t1, self.t1r)
+                self.sc.blit(self.t2, self.t2r)
 
                 pygame.display.update()
 
-                timer = time.perf_counter() - starttime
+        self.mapchoice = ''
+        acceptedChars = ['abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.']
 
         if not self.terminate:
             self.mainLoop()
 
+    def renderField(self):
+        pass
+
     def mainLoop(self):
-        while 1:
+        alive = True
+
+        while alive:
             for i in pygame.event.get():
                 if i.type == pygame.QUIT:
-                    exit()
+                    self.msg.stopServer()
+                    alive = False
+
+            self.renderField()
 
             pygame.display.update()
