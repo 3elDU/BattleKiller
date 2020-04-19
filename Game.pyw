@@ -1,7 +1,9 @@
 from libraries import Main
+import os
+print(os.getcwd())
 
 if __name__ == '__main__':
-    f = open('settings.txt')
+    f = open('Game_Settings.txt')
     c = f.read().split('\n')
     f.close()
-    Main.Main(c[0], c[1], c[2])
+    Main.Main(int(c[0]), int(c[1]), int(c[2]))

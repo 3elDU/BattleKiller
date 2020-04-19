@@ -6,7 +6,7 @@ class Main:
     def __init__(self, pw, ph, gui):
         pygame.init()
         self.font = pygame.font.Font(None, 36)  # Creating font object for future use
-        self.logofont = pygame.font.Font('microsoftyaheimicrosoftyaheiui', 36 * gui)
+        self.logofont = pygame.font.SysFont('arial', 36 * gui)
 
         self.pw = pw  # Pixel width
         self.ph = ph  # Pixel height
@@ -21,19 +21,21 @@ class Main:
 
         while not madeChoice:
             for e in pygame.event.get():
-                if e.type == pygame.KEYDOWN:
+                if e.type == pygame.QUIT:
+                    exit()
+                elif e.type == pygame.KEYDOWN:
                     if e.key == pygame.K_RETURN:
                         madeChoice = True
                     elif e.key == pygame.K_LEFT:
-                        if self.choice == 1:
-                            self.choice = 2
-                        else:
+                        if self.choice == 0:
                             self.choice = 1
+                        else:
+                            self.choice = 0
                     elif e.key == pygame.K_RIGHT:
-                        if self.choice == 2:
-                            self.choice = 1
+                        if self.choice == 1:
+                            self.choice = 0
                         else:
-                            self.choice = 2
+                            self.choice = 1
 
             self.sc.fill((255, 255, 255))
 
@@ -48,8 +50,8 @@ class Main:
                 self.t1 = self.font.render('  Client', 1, (0, 0, 0))
                 self.t2 = self.font.render('> Server', 1, (0, 0, 0))
 
-            self.t1r = self.t1.get_rect(topleft=(14 * self.pw, 12 * self.ph))
-            self.t2r = self.t2.get_rect(topleft=(34 * self.pw, 12 * self.ph))
+            self.t1r = self.t1.get_rect(center=(8 * self.pw, 12 * self.ph))
+            self.t2r = self.t2.get_rect(center=(34 * self.pw, 12 * self.ph))
 
             self.sc.blit(self.t1, self.t1r)
             self.sc.blit(self.t2, self.t2r)
@@ -68,22 +70,29 @@ class Main:
 
             while not madeChoice:
                 for i in pygame.event.get():
-                    if i.type == pygame.KEYDOWN:
+                    if i.type == pygame.QUIT:
+                        exit()
+                    elif i.type == pygame.KEYDOWN:
                         if i.unicode in acceptedChars[entry_choice]:
-                            if not entry_choice:
+                            if entry_choice == 0:
                                 self.ip += i.unicode
-                            else:
+                            elif entry_choice == 1:
                                 self.port += i.unicode
                         elif i.key == pygame.K_LEFT:
-                            if not entry_choice:
+                            if entry_choice == 0:
                                 entry_choice = 1
-                            else:
+                            elif entry_choice == 1:
                                 entry_choice = 0
+                        elif i.key == pygame.K_RIGHT:
+                            if entry_choice == 1:
+                                entry_choice = 0
+                            elif entry_choice == 0:
+                                entry_choice = 1
                         elif i.key == pygame.K_BACKSPACE:
-                            if not entry_choice:
+                            if entry_choice == 0:
                                 if len(self.ip) > 0:
                                     self.ip = self.ip[:len(self.ip) - 1:]
-                            else:
+                            elif entry_choice == 1:
                                 if len(self.port) > 0:
                                     self.port = self.port[:len(self.port) - 1:]
                         elif i.key == pygame.K_RETURN:
@@ -92,15 +101,17 @@ class Main:
                 self.sc.fill((255, 255, 255))
 
                 self.t1 = self.font.render(self.ip, 1, (0, 0, 0))
-                self.t2 = self.font.render(self.port, 1, (0, 0, 0))
+                self.t2 = self.font.render(str(self.port), 1, (0, 0, 0))
 
-                self.t1r = self.t1.get_rect(topleft=(14 * self.pw, 12 * self.ph))
-                self.t2r = self.t2.get_rect(topleft=(34 * self.pw, 12 * self.ph))
+                self.t1r = self.t1.get_rect(center=(14 * self.pw, 12 * self.ph))
+                self.t2r = self.t2.get_rect(center=(34 * self.pw, 12 * self.ph))
 
                 self.sc.blit(self.t1, self.t1r)
                 self.sc.blit(self.t1, self.t1r)
 
                 pygame.display.update()
+
+                print(entry_choice)
 
             self.msg = Client.Main(self.ip, self.port)
         elif self.choice == 1:
@@ -115,16 +126,23 @@ class Main:
             timer = 0
             starttime = time.perf_counter()
             while timer <= 10:
+                for i in pygame.event.get():
+                    if i.type == pygame.QUIT:
+                        self.terminate = True
+                        break
+
                 self.sc.fill((255, 255, 255))
 
-                self.t1 = self.font.render(self.ip, 1, (0, 0, 0))
-                self.t2 = self.font.render(self.port, 1, (0, 0, 0))
+                self.t1 = self.font.render(str(self.ip), 1, (0, 0, 0))
+                self.t2 = self.font.render('2535', 1, (0, 0, 0))
 
-                self.t1r = self.t1.get_rect(topleft=(14 * self.pw, 12 * self.ph))
-                self.t2r = self.t2.get_rect(topleft=(34 * self.pw, 12 * self.ph))
+                self.t1r = self.t1.get_rect(center=(14 * self.pw, 12 * self.ph))
+                self.t2r = self.t2.get_rect(center=(34 * self.pw, 12 * self.ph))
 
                 self.sc.blit(self.t1, self.t1r)
                 self.sc.blit(self.t1, self.t1r)
+
+                pygame.display.update()
 
                 timer = time.perf_counter() - starttime
 
@@ -133,4 +151,8 @@ class Main:
 
     def mainLoop(self):
         while 1:
+            for i in pygame.event.get():
+                if i.type == pygame.QUIT:
+                    exit()
+
             pygame.display.update()

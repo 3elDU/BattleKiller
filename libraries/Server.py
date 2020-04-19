@@ -15,6 +15,8 @@ class Server(Thread):
         self.connected = False
         self.tosend = None
         self.data = None
+        self.conn = None
+        self.addr = None
 
         self.s = socket.socket()
         self.s.setblocking(False)
@@ -22,9 +24,9 @@ class Server(Thread):
     def connect(self):
         timer = 0
         starttimer = time.perf_counter()
-        while timer < 10:
+        while timer < 5:
             try:
-                self.s.connect((self.ip, self.port))
+                self.s.bind((self.ip, self.port))
                 self.connected = True
             except socket.error:
                 pass
@@ -40,11 +42,20 @@ class Server(Thread):
     def run(self):
         self.connect()
         if self.connected:
+            self.s.listen(1)
             while True:
                 try:
-                    self.data = self.s.recv(16384).decode('utf-8')
+                    self.conn, self.addr = self.s.accept()
+                    print(self.conn, self.addr)
+                    break
+                except socket.error:
+                    pass
+
+            while True:
+                try:
+                    self.data = self.conn.recv(16384).decode('utf-8')
                     if self.tosend is not None:
-                        self.s.send(self.tosend.encode('utf-8'))
+                        self.conn.send(self.tosend.encode('utf-8'))
                 except socket.error:
                     pass
 
@@ -58,7 +69,7 @@ class Main:
         self.port = 2535
 
         self.thread = Server('server', 0, self.ip, self.port)
-        self.thread.run()
+        self.thread.start()
 
     def getIp(self):
         return self.ip, self.port

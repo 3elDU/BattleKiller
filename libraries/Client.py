@@ -21,7 +21,7 @@ class Server(Thread):
     def connect(self):
         timer = 0
         starttimer = time.perf_counter()
-        while timer < 10:
+        while timer < 5:
             try:
                 self.s.connect((self.ip, self.port))
                 self.connected = True
