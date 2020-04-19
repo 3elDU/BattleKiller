@@ -35,7 +35,9 @@ class Server(Thread):
             timer = time.perf_counter() - starttimer
 
     def getdata(self):
-        return self.data
+        toreturn = self.data
+        self.data = None
+        return toreturn
 
     def send(self, data):
         self.tosend = data
@@ -61,6 +63,10 @@ class Server(Thread):
             while self.alive:
                 try:
                     self.data = self.conn.recv(16384).decode('utf-8')
+                except socket.error:
+                    pass
+
+                try:
                     if self.tosend is not None:
                         self.conn.send(self.tosend.encode('utf-8'))
                         self.tosend = None
@@ -83,7 +89,10 @@ class Main:
         return self.ip, self.port
 
     def getData(self):
-        pass
+        return self.thread.getdata()
+
+    def sendData(self, data):
+        self.thread.send(data)
 
     def stopServer(self):
         self.thread.setAlive(False)

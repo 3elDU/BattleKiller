@@ -38,19 +38,26 @@ class Server(Thread):
             timer = time.perf_counter() - starttimer
 
     def getdata(self):
-        return self.data
+        toreturn = self.data
+        self.data = None
+        return toreturn
 
     def send(self, data):
-        self.data = data
+        self.tosend = data
 
     def run(self):
         self.connect()
         if self.connected:
-            while True:
+            while self.alive:
                 try:
                     self.data = self.s.recv(16384).decode('utf-8')
+                except socket.error as e:
+                    print(e)
+
+                try:
                     if self.tosend is not None:
                         self.s.send(self.tosend.encode('utf-8'))
+                        self.tosend = None
                 except socket.error:
                     pass
 
