@@ -1,6 +1,6 @@
 from libraries import Main
 import os
-print(os.getcwd())
+print('LOG: WORKING DIRECTORY:', os.getcwd())
 
 if __name__ == '__main__':
     f = open('Game_Settings.txt')

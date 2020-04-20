@@ -1,5 +1,4 @@
 import pygame
-
 pygame.init()
 
 
@@ -18,8 +17,8 @@ class Main:
                 try:
                     self.textures[texture] = pygame.image.load(self.path + texture + '.png')
                     self.textures[texture] = self.textures[texture].convert_alpha()
-                except pygame.error:
-                    pass
+                except Exception as e:
+                    print(e)
 
     def getTexture(self, texture):
         try:

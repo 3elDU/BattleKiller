@@ -1,4 +1,4 @@
-import TextureManager
+import libraries.TextureManager
 import pygame
 from tkinter import *
 
@@ -136,13 +136,14 @@ class Main:
 
         tList = ['brick', 'stone', 'grass', 'doorw', 'doorh', 'glass']
         self.tList = tList
-        self.mgr = TextureManager.Main(path='textures/', textureList=tList)
+        self.mgr = libraries.TextureManager.Main(path='textures/', textureList=tList)
 
-        self.keys = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_0]
+        self.keys = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_0, pygame.K_7,
+                     pygame.K_8]
 
         self.map = {}
         self.objects = {}
-        self.slots = ['brick', 'stone', 'grass', 'doorw', 'doorh', 'glass', None]
+        self.slots = ['brick', 'stone', 'grass', 'doorw', 'doorh', 'glass', None, 'spawn_client', 'spawn_server']
         self.curslot = 1
         self.prevblocks = {}
         self.prevobjects = {}
@@ -184,19 +185,25 @@ class Main:
                     self.prevblocks[x, y] = self.map[x, y]
 
                 if self.prevobjects[x, y] != self.objects[x, y] or self.prevobjects[x, y] == 'update':
-                    if self.objects[x, y] is not None:
+                    if self.objects[x, y] is not None and self.objects[x, y] not in ['spawn_client', 'spawn_server']:
                         texture = pygame.transform.scale(self.mgr.getTexture(self.objects[x, y]),
                                                          (self.pixSize, self.pixSize))
                         textureRect = texture.get_rect(topleft=(x * self.pixSize, y * self.pixSize))
                         self.sc.blit(texture, textureRect)
                     self.prevobjects[x, y] = self.objects[x, y]
+                elif self.objects[x, y] == 'spawn_client':
+                    pygame.draw.rect(self.sc, (0, 0, 255),
+                                     (x * self.pixSize, y * self.pixSize, self.pixSize, self.pixSize))
+                elif self.objects[x, y] == 'spawn_server':
+                    pygame.draw.rect(self.sc, (255, 0, 0),
+                                     (x * self.pixSize, y * self.pixSize, self.pixSize, self.pixSize))
 
     def click(self, x, y):
         if self.slots[self.curslot - 1] is None:
             self.map[x, y] = None
             self.objects[x, y] = None
         else:
-            if self.slots[self.curslot - 1] not in ['glass', 'doorw', 'doorh']:
+            if self.slots[self.curslot - 1] not in ['glass', 'doorw', 'doorh', 'spawn_client', 'spawn_server']:
                 self.map[x, y] = self.slots[self.curslot - 1]
             else:
                 self.objects[x, y] = self.slots[self.curslot - 1]
@@ -208,7 +215,7 @@ class Main:
                 self.prevobjects[x, y] = 'update'
 
     def resetAll(self):
-        self.slots = ['brick', 'stone', 'grass', 'doorw', 'doorh', 'glass', None]
+        self.slots = ['brick', 'stone', 'grass', 'doorw', 'doorh', 'glass', None, 'spawn_client', 'spawn_server']
         self.curslot = 1
         self.prevblocks = {}
         self.prevobjects = {}
@@ -261,7 +268,7 @@ class Main:
 
             self.renderMap()
 
-            pygame.draw.rect(self.sc, (0, 0, 0), (x+1, y+1, self.pixSize-1, self.pixSize-1), 1)
+            pygame.draw.rect(self.sc, (0, 0, 0), (x + 1, y + 1, self.pixSize - 1, self.pixSize - 1), 1)
             self.prevblocks[x // self.pixSize, y // self.pixSize] = 'update'
             self.prevobjects[x // self.pixSize, y // self.pixSize] = 'update'
 

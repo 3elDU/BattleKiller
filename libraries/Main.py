@@ -1,4 +1,6 @@
 import pygame
+import os
+print('LOG: CURRENT DIRECTORY:', os.getcwd())
 
 
 class Main:
@@ -10,7 +12,7 @@ class Main:
         self.pw = pw  # Pixel width
         self.ph = ph  # Pixel height
         self.gui = gui  # GUI size multiplier
-        self.guisize = 30 * gui
+        self.guisize = 60 * gui
         self.terminate = 0
         self.prevBlocks = {}
         self.prevObjects = {}
@@ -47,6 +49,7 @@ class Main:
                 while d is None:
                     d = self.msg.getData()
                 try:
+                    d = d.replace('--', '')
                     d = eval(d)
                     self.mw = d[0]
                     self.mh = d[1]
@@ -75,11 +78,27 @@ class Main:
     def renderField(self):
         for x in range(self.mw):
             for y in range(self.mh):
-                pass
+                if self.prevBlocks[x, y] != self.map[x, y] or self.prevBlocks[x, y] == 'update':
+                    if self.map[x, y] is not None:
+                        t = self.mgr.getTexture(self.map[x, y])
+                        t = pygame.transform.scale(t, (self.pw, self.ph))
+                        tR = t.get_rect(topleft=(x * self.pw, y * self.ph))
+                        self.sc.blit(t, tR)
+                        self.prevBlocks[x, y] = self.map[x, y]
+                    else:
+                        pygame.draw.rect(self.sc, (144, 202, 249), (x * self.pw, y * self.ph, self.pw, self.ph))
+                if self.objects[x, y] != self.prevObjects[x, y] or self.prevObjects[x, y] == 'update':
+                    if self.objects[x, y] is not None:
+                        t = self.mgr.getTexture(self.objects[x, y])
+                        t = pygame.transform.scale(t, (self.pw, self.ph))
+                        tR = t.get_rect(topleft=(x * self.pw, y * self.ph))
+                        self.sc.blit(t, tR)
+                        self.prevObjects[x, y] = self.objects[x, y]
 
     def operateData(self, data):
         tosend = ''
         if data is not None:
+            print(data)
             if 'cmd-' in data:
                 command = data.replace('cmd-', '')
                 if command == 'getmap':
@@ -90,7 +109,9 @@ class Main:
                     print("LOG: Client-Side error. Stopping server.")
                 elif command == 'getchanges':
                     tosend = str(self.changes)
-        self.msg.sendData(tosend + '--')
+        if tosend != '':
+            print(tosend)
+            self.msg.sendData(tosend + '--')
 
     def mainLoop(self):
         alive = True
@@ -100,8 +121,6 @@ class Main:
                 if i.type == pygame.QUIT:
                     self.msg.stopServer()
                     alive = False
-
-            self.sc.fill((255, 255, 255))
 
             self.renderField()
             self.operateData(self.msg.getData())
