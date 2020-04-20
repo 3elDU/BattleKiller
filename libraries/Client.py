@@ -41,6 +41,9 @@ class Server(Thread):
 
             timer += 1
 
+    def isConnected(self):
+        return self.connected
+
     def getdata(self):
         toreturn = self.data
         self.data = None
@@ -77,6 +80,9 @@ class Main:
 
         self.thread = Server('client', 0, self.ip, self.port)
         self.thread.start()
+
+    def isConnected(self):
+        return self.thread.isConnected()
 
     def getAlive(self):
         return self.thread.getAlive()

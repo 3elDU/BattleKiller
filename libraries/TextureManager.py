@@ -18,7 +18,7 @@ class Main:
                     self.textures[texture] = pygame.image.load(self.path + texture + '.png')
                     self.textures[texture] = self.textures[texture].convert_alpha()
                 except Exception as e:
-                    print(e)
+                    print("TEXTURE LOAD ERROR:", e)
 
     def getTexture(self, texture):
         try:

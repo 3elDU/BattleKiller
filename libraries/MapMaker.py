@@ -241,13 +241,12 @@ class Main:
                     elif i.key == pygame.K_l:
                         s = SaveDialog(self.mWidth, self.mHeight, self.map, self.objects, mode='load')
                         content = s.getcontent()
-                        while content is None:
-                            content = s.getcontent()
-                        self.mWidth = content[0][0]
-                        self.mHeight = content[0][1]
-                        self.map = content[1]
-                        self.objects = content[2]
-                        self.resetAll()
+                        if content is not None:
+                            self.mWidth = content[0][0]
+                            self.mHeight = content[0][1]
+                            self.map = content[1]
+                            self.objects = content[2]
+                            self.resetAll()
                     elif i.key == pygame.K_f:
                         fBlock = input("Fill block: ")
                         self.fillMap(fBlock)
