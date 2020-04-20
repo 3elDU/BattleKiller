@@ -1,4 +1,5 @@
 import pygame
+
 pygame.init()
 
 
@@ -199,5 +200,43 @@ class Main:
                     self.map = None
                     self.objects = None
 
+        self.choices = ['Sniper', 'Healer', 'Swordsman', 'Builder']
+        self.classChoice = self.choices[0]
+        self.c5 = None
+        self.madeChoice = False
+
+        while not self.madeChoice:
+            for i in pygame.event.get():
+                if i.type == pygame.QUIT:
+                    self.msg.stopServer()
+                    self.terminate = True
+                    self.madeChoice = True
+                    self.classChoice = None
+                elif i.type == pygame.KEYDOWN:
+                    if i.key == pygame.K_RIGHT:
+                        if self.choices.index(self.classChoice) + 1 == len(self.choices):
+                            self.classChoice = self.choices[0]
+                        else:
+                            self.classChoice = self.choices[self.choices.index(self.classChoice) + 1]
+                    elif i.key == pygame.K_LEFT:
+                        if self.choices.index(self.classChoice) == 0:
+                            self.classChoice = self.choices[len(self.choices) - 1]
+                        else:
+                            self.classChoice = self.choices[self.choices.index(self.classChoice) - 1]
+                    elif i.key == pygame.K_RETURN:
+                        self.madeChoice = True
+
+            self.sc.fill((255, 255, 255))
+
+            for text in range(len(self.choices)):
+                if self.classChoice == self.choices[text]:
+                    t = self.font.render('>' + self.choices[text], 1, (0, 0, 0))
+                else:
+                    t = self.font.render(self.choices[text], 1, (0, 0, 0))
+                tr = t.get_rect(topleft=((2 + 10 * text) * self.pw, 12 * self.ph))
+                self.sc.blit(t, tr)
+
+            pygame.display.update()
+
     def getAll(self):
-        return self.choice, self.msg, self.terminate, self.mw, self.mh, self.map, self.objects
+        return self.choice, self.msg, self.terminate, self.mw, self.mh, self.map, self.objects, self.classChoice

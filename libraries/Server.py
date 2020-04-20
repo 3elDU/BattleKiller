@@ -85,6 +85,9 @@ class Main:
         self.thread = Server('server', 0, self.ip, self.port)
         self.thread.start()
 
+    def getAlive(self):
+        return self.thread.getAlive()
+
     def getIp(self):
         return self.ip, self.port
 

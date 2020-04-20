@@ -31,8 +31,10 @@ class Server(Thread):
             try:
                 self.s.connect((self.ip, self.port))
                 self.connected = True
+                print('LOG: Connected to server!')
             except socket.error as e:
                 if str(e) == '[WinError 10056] A connect request was made on an already connected socket':
+                    print('LOG: Connected to server!')
                     self.connected = True
 
             timer += 1
@@ -73,6 +75,9 @@ class Main:
 
         self.thread = Server('client', 0, self.ip, self.port)
         self.thread.start()
+
+    def getAlive(self):
+        return self.thread.getAlive()
 
     def getData(self):
         return self.thread.getdata()

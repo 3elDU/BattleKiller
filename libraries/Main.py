@@ -14,7 +14,12 @@ class Main:
         self.terminate = 0
         self.prevBlocks = {}
         self.prevObjects = {}
+        self.changes = {}
         self.error = False
+
+        from libraries import TextureManager
+        self.textList = ['brick', 'stone', 'grass', 'doorw', 'doorh', 'glass', 'sniper', 'healer', 'swordsman', 'builder']
+        self.mgr = TextureManager.Main(path='textures/', textureList=self.textList)
 
         self.sc = pygame.display.set_mode((48 * self.pw, 24 * self.ph + self.guisize))
 
@@ -30,6 +35,7 @@ class Main:
             self.mh = data[4]
             self.map = data[5]
             self.objects = data[6]
+            self.classChoice = data[7]
         except Exception as e:
             self.terminate = 1
             print("ERROR:", e)
@@ -50,6 +56,11 @@ class Main:
                     print("LOG: ERROR:", e)
                     self.error = True
 
+            for x in range(self.mw):
+                for y in range(self.mh):
+                    self.prevBlocks[x, y] = 'update'
+                    self.prevObjects[x, y] = 'update'
+
             if not self.error:
                 self.sc = pygame.display.set_mode((self.mw * self.pw, self.mh * self.ph + self.guisize * self.gui))
 
@@ -62,10 +73,24 @@ class Main:
             self.msg.stopServer()
 
     def renderField(self):
-        pass
+        for x in range(self.mw):
+            for y in range(self.mh):
+                pass
 
     def operateData(self, data):
-        pass
+        tosend = ''
+        if data is not None:
+            if 'cmd-' in data:
+                command = data.replace('cmd-', '')
+                if command == 'getmap':
+                    if self.choice == 1:
+                        tosend = str((self.mw, self.mh, self.map, self.objects))
+                elif command == 'stop':
+                    self.msg.stopServer()
+                    print("LOG: Client-Side error. Stopping server.")
+                elif command == 'getchanges':
+                    tosend = str(self.changes)
+        self.msg.sendData(tosend + '--')
 
     def mainLoop(self):
         alive = True
@@ -82,3 +107,7 @@ class Main:
             self.operateData(self.msg.getData())
 
             pygame.display.update()
+
+            if not self.msg.getAlive():
+                print('LOG: Exiting game.')
+                alive = False
