@@ -55,7 +55,7 @@ class Server(Thread):
             while self.alive:
                 try:
                     self.conn, self.addr = self.s.accept()
-                    print(self.conn, self.addr)
+                    print("LOG: NEW CONNECTION:", self.conn, self.addr)
                     break
                 except socket.error:
                     pass

@@ -1,6 +1,5 @@
 from threading import *
 import socket
-import time
 
 
 class Server(Thread):
@@ -15,6 +14,7 @@ class Server(Thread):
         self.tosend = None
         self.data = None
         self.alive = True
+        self.tries = 500
 
         self.s = socket.socket()
         self.s.setblocking(False)
@@ -27,15 +27,15 @@ class Server(Thread):
 
     def connect(self):
         timer = 0
-        starttimer = time.perf_counter()
-        while timer < 5:
+        while timer < self.tries:
             try:
                 self.s.connect((self.ip, self.port))
                 self.connected = True
-            except socket.error:
-                pass
+            except socket.error as e:
+                if str(e) == '[WinError 10056] A connect request was made on an already connected socket':
+                    self.connected = True
 
-            timer = time.perf_counter() - starttimer
+            timer += 1
 
     def getdata(self):
         toreturn = self.data
@@ -47,12 +47,13 @@ class Server(Thread):
 
     def run(self):
         self.connect()
+
         if self.connected:
             while self.alive:
                 try:
                     self.data = self.s.recv(16384).decode('utf-8')
-                except socket.error as e:
-                    print(e)
+                except socket.error:
+                    pass
 
                 try:
                     if self.tosend is not None:
@@ -71,7 +72,7 @@ class Main:
         self.connectionTimeout = 10
 
         self.thread = Server('client', 0, self.ip, self.port)
-        self.thread.run()
+        self.thread.start()
 
     def getData(self):
         return self.thread.getdata()

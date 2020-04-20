@@ -148,46 +148,56 @@ class Main:
 
                 pygame.display.update()
 
-            self.mapchoice = ''
-            acceptedChars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.'
-            madeChoice = 0
+            if self.choice == 1:
+                self.mapchoice = ''
+                acceptedChars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.'
+                madeChoice = 0
 
-            while madeChoice == 0:
-                for i in pygame.event.get():
-                    if i.type == pygame.QUIT:
-                        self.msg.stopServer()
-                        self.terminate = True
-                        madeChoice = -1
-                    elif i.type == pygame.KEYDOWN:
-                        if i.unicode in acceptedChars:
-                            self.mapchoice += i.unicode
-                        if i.key == pygame.K_BACKSPACE:
-                            if len(self.mapchoice) > 0:
-                                self.mapchoice = self.mapchoice[:len(self.mapchoice) - 1:]
-                        elif i.key == pygame.K_RETURN:
-                            madeChoice = 1
+                while madeChoice == 0:
+                    for i in pygame.event.get():
+                        if i.type == pygame.QUIT:
+                            self.msg.stopServer()
+                            self.terminate = True
+                            madeChoice = -1
+                        elif i.type == pygame.KEYDOWN:
+                            if i.unicode in acceptedChars:
+                                self.mapchoice += i.unicode
+                            if i.key == pygame.K_BACKSPACE:
+                                if len(self.mapchoice) > 0:
+                                    self.mapchoice = self.mapchoice[:len(self.mapchoice) - 1:]
+                            elif i.key == pygame.K_RETURN:
+                                madeChoice = 1
 
-                self.sc.fill((255, 255, 255))
+                    self.sc.fill((255, 255, 255))
 
-                t1 = self.font.render(self.mapchoice, 1, (0, 0, 0))
-                t1r = t1.get_rect(center=(24 * self.pw, 12 * self.ph))
+                    t1 = self.font.render(self.mapchoice, 1, (0, 0, 0))
+                    t1r = t1.get_rect(center=(24 * self.pw, 12 * self.ph))
 
-                self.sc.blit(t1, t1r)
+                    self.sc.blit(t1, t1r)
 
-                pygame.display.update()
+                    pygame.display.update()
+            else:
+                madeChoice = 1
+                self.mapchoice = None
 
             if madeChoice == 1:
-                try:
-                    f = open('maps/' + self.mapchoice, 'r')
-                    m = f.read().split('\n')
-                    f.close()
-                    self.mw = eval(m[0])[0]
-                    self.mh = eval(m[0])[1]
-                    self.map = eval(m[1])
-                    self.objects = eval(m[2])
-                    print('map loaded!')
-                except FileNotFoundError:
-                    self.terminate = True
+                if self.choice == 1:
+                    try:
+                        f = open('maps/' + self.mapchoice, 'r')
+                        m = f.read().split('\n')
+                        f.close()
+                        self.mw = eval(m[0])[0]
+                        self.mh = eval(m[0])[1]
+                        self.map = eval(m[1])
+                        self.objects = eval(m[2])
+                        print('LOG: Map loaded!')
+                    except FileNotFoundError:
+                        self.terminate = True
+                elif self.choice == 0:
+                    self.mw = None
+                    self.mh = None
+                    self.map = None
+                    self.objects = None
 
     def getAll(self):
         return self.choice, self.msg, self.terminate, self.mw, self.mh, self.map, self.objects

@@ -14,6 +14,7 @@ class Main:
         self.terminate = 0
         self.prevBlocks = {}
         self.prevObjects = {}
+        self.error = False
 
         self.sc = pygame.display.set_mode((48 * self.pw, 24 * self.ph + self.guisize))
 
@@ -24,7 +25,6 @@ class Main:
         try:
             self.choice = data[0]
             self.msg = data[1]
-            print(self.msg)
             self.terminate = data[2]
             self.mw = data[3]
             self.mh = data[4]
@@ -32,15 +32,39 @@ class Main:
             self.objects = data[6]
         except Exception as e:
             self.terminate = 1
-            print(e)
+            print("ERROR:", e)
 
         if not self.terminate:
-            self.mainLoop()
+            if self.choice == 0:
+                self.msg.sendData('cmd-getmap')
+                d = self.msg.getData()
+                while d is None:
+                    d = self.msg.getData()
+                try:
+                    d = eval(d)
+                    self.mw = d[0]
+                    self.mh = d[1]
+                    self.map = d[2]
+                    self.objects = d[3]
+                except Exception as e:
+                    print("LOG: ERROR:", e)
+                    self.error = True
+
+            if not self.error:
+                self.sc = pygame.display.set_mode((self.mw * self.pw, self.mh * self.ph + self.guisize * self.gui))
+
+                self.mainLoop()
+            else:
+                self.msg.sendData('cmd-stop')
+                self.msg.stopServer()
         else:
             self.msg.sendData('cmd-stop')
             self.msg.stopServer()
 
     def renderField(self):
+        pass
+
+    def operateData(self, data):
         pass
 
     def mainLoop(self):
@@ -55,9 +79,6 @@ class Main:
             self.sc.fill((255, 255, 255))
 
             self.renderField()
-            d = self.msg.getData()
-            if d is not None:
-                print(d)
-                self.msg.sendData('wow, cool!')
+            self.operateData(self.msg.getData())
 
             pygame.display.update()
