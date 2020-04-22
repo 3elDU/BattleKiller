@@ -1,5 +1,6 @@
 import pygame
 import os
+
 print('LOG: CURRENT DIRECTORY:', os.getcwd())
 
 
@@ -48,6 +49,22 @@ class Main:
             self.terminate = data[1]
             self.classChoice = data[2]
             while connected is False:
+                for i in pygame.event.get():
+                    if i.type == pygame.QUIT:
+                        self.terminate = 1
+                        self.error = True
+                        self.msg.sendData('cmd-stop')
+                        self.msg.stopServer()
+                        exit()
+
+                self.sc.fill((255, 255, 255))
+
+                t = self.font.render('Connecting...', 1, (0, 0, 0))
+                tR = t.get_rect(center=((self.mw // 2) * 16, (self.mh // 2) * 16))
+                self.sc.blit(t, tR)
+
+                pygame.display.update()
+
                 connected = self.msg.isConnected()
             print("LOG: Connected!")
         except Exception as e:
@@ -55,10 +72,19 @@ class Main:
             print("LOG: ERROR:", e)
 
         try:
-            self.msg = data[0]
+            print('LOG: Sending start command...')
+            self.msg.sendData('start')
+            d = self.msg.getData()
+            while d is None:
+                d = self.msg.getData()
+
+            if d != 'start':
+                self.cont = False
+                print('LOG: Failed! Exiting...')
         except Exception as e:
-            self.terminate = 1
-            print("LOG: ERROR:", e)
+            self.msg.sendData('cmd-stop')
+            self.cont = False
+            print('LOG: ERROR:', e)
 
         print('LOG: Continue:', self.cont)
 
@@ -75,6 +101,7 @@ class Main:
                     self.cy = p[3]
                     self.pclass = p[4]
                 except Exception as e:
+                    self.msg.sendData('cmd-stop')
                     print("LOG: ERROR", e)
                     self.error = True
 
@@ -89,6 +116,15 @@ class Main:
                 while dta is None:
                     dta = self.msg.getData()
 
+                try:
+                    self.map = dta[0]
+                    self.objects = dta[1]
+                except Exception as e:
+                    self.msg.sendData('cmd-stop')
+                    self.msg.stopServer()
+                    print('LOG: ERROR:', e)
+                    self.error = True
+
                 for x in range(self.mw):
                     for y in range(self.mh):
                         self.prevBlocks[x, y] = 'update'
@@ -102,12 +138,15 @@ class Main:
                     self.mainLoop()
                 else:
                     self.msg.sendData('cmd-stop')
+                    print('LOG: Exiting...')
                     self.msg.stopServer()
             else:
                 self.msg.sendData('cmd-stop')
+                print('LOG: Exiting...')
                 self.msg.stopServer()
         else:
             self.msg.sendData('cmd-stop')
+            print('LOG: Exiting...')
             self.msg.stopServer()
 
     def renderField(self):
@@ -137,7 +176,7 @@ class Main:
             if 'cmd-' in data:
                 command = data.replace('cmd-', '').replace('--', '')
                 if command == 'getmap':
-                    tosend = str((self.mw, self.mh, self.map, self.objects))
+                    tosend = str((self.map, self.objects))
                 elif command == 'stop':
                     self.msg.stopServer()
                     print("LOG: Client-Side error. Stopping server.")

@@ -167,7 +167,7 @@ class Main:
                 command = data.replace('cmd-', '').replace('--', '')
                 if command == 'getmap':
                     if self.choice == 1:
-                        tosend = str((self.mw, self.mh, self.map, self.objects))
+                        tosend = str((self.map, self.objects))
                 elif command == 'stop':
                     self.msg.stopServer()
                     print("LOG: Client-Side error. Stopping server.")
