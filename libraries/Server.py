@@ -1,257 +1,107 @@
-import pygame
-import os
+from threading import *
+import socket
 import time
-print('LOG: CURRENT DIRECTORY:', os.getcwd())
+
+
+class Server(Thread):
+    def __init__(self, name, identifier, ip, port):
+        self.ip = ip
+        self.port = port
+
+        Thread.__init__(self)
+
+        self.name = name
+        self.id = identifier
+        self.connected = False
+        self.tosend = None
+        self.data = None
+        self.conn = None
+        self.addr = None
+        self.alive = True
+
+        self.s = socket.socket()
+        self.s.setblocking(False)
+
+    def connect(self):
+        timer = 0
+        starttimer = time.perf_counter()
+        while timer < 5:
+            try:
+                self.s.bind((self.ip, self.port))
+                self.connected = True
+            except socket.error:
+                pass
+
+            timer = time.perf_counter() - starttimer
+
+    def getdata(self):
+        toreturn = self.data
+        self.data = None
+        return toreturn
+
+    def isConnected(self):
+        return self.connected
+
+    def send(self, data):
+        self.tosend = data
+
+    def setAlive(self, b):
+        self.alive = b
+
+    def getAlive(self):
+        return self.alive
+
+    def run(self):
+        self.connect()
+        if self.connected:
+            self.s.listen(1)
+            while self.alive:
+                try:
+                    self.conn, self.addr = self.s.accept()
+                    print("LOG: NEW CONNECTION:", self.conn, self.addr)
+                    break
+                except socket.error:
+                    pass
+
+            while self.alive:
+                try:
+                    self.data = self.conn.recv(16384).decode('utf-8')
+                except socket.error:
+                    pass
+
+                try:
+                    if self.tosend is not None:
+                        self.conn.send(self.tosend.encode('utf-8'))
+                        self.tosend = None
+                except socket.error:
+                    pass
 
 
 class Main:
-    def __init__(self, pw, ph, gui):
-        pygame.init()
-        self.font = pygame.font.Font(None, 36)  # Creating font object for future use
-        self.logofont = pygame.font.SysFont('arial', 36 * gui)
+    def __init__(self):
+        self.s = socket.socket()
+        self.s.setblocking(False)
 
-        self.pw = pw  # Pixel width
-        self.ph = ph  # Pixel height
-        self.gui = gui  # GUI size multiplier
-        self.guisize = 60 * gui
-        self.terminate = 0
-        self.prevBlocks = {}
-        self.prevObjects = {}
-        self.changes = {}
-        self.objChanges = {}
-        self.error = False
-        self.pclass = None
-        self.cont = False
-        self.mw = 48
-        self.mh = 24
-        self.px = 0
-        self.py = 0
-        self.cx = 0
-        self.cy = 0
+        self.ip = socket.gethostbyname(socket.gethostname())
+        self.port = 2535
 
-        self.sc = pygame.display.set_mode((48 * self.pw, 24 * self.ph + self.guisize))
+        self.thread = Server('server', 0, self.ip, self.port)
+        self.thread.start()
 
-        from libraries import TextureManager
-        self.textList = ['brick', 'stone', 'grass', 'doorw', 'doorh', 'glass', 'sniper', 'healer', 'swordsman',
-                         'builder']
-        self.mgr = TextureManager.Main(path='textures/', textureList=self.textList)
+    def isConnected(self):
+        return self.thread.isConnected()
 
-        from libraries import StartupSettings
-        self.settings = StartupSettings.Main(self.sc, self.pw, self.ph, self.gui)
-        data = self.settings.getAll()
-        connected = False
+    def getAlive(self):
+        return self.thread.getAlive()
 
-        try:
-            self.msg = data[1]
-            while connected is False:
-                connected = data[1].isConnected()
-            print("LOG: Connected!")
-        except Exception as e:
-            self.terminate = 1
-            print("LOG: ERROR:", e)
+    def getIp(self):
+        return self.ip, self.port
 
-        try:
-            pass
-        except Exception as e:
-            self.terminate = 1
-            print("LOG: ERROR:", e)
+    def getData(self):
+        return self.thread.getdata()
 
-        print('LOG: Continue:', self.cont)
+    def sendData(self, data):
+        self.thread.send(data)
 
-        if self.cont:
-            try:
-                self.choice = data[0]
-                self.msg = data[1]
-                self.terminate = data[2]
-                self.mw = data[3]
-                self.mh = data[4]
-                self.map = data[5]
-                self.objects = data[6]
-                self.classChoice = data[7]
-            except Exception as e:
-                self.terminate = 1
-                print("ERROR:", e)
-
-            if not self.terminate:
-                if self.choice == 0:
-                    self.msg.sendData('cmd-getmap')
-                    d = self.msg.getData()
-                    while d is None:
-                        d = self.msg.getData()
-                    try:
-                        d = d.replace('--', '')
-                        d = eval(d)
-                        self.mw = d[0]
-                        self.mh = d[1]
-                        self.map = d[2]
-                        self.objects = d[3]
-                    except Exception as e:
-                        print("LOG: ERROR:", e)
-                        self.error = True
-
-                    self.msg.sendData('cmd-getplayer')
-                    pdata = self.msg.getData()
-                    try:
-                        p = pdata.replace('--', '')
-                        p = eval(p)
-                        self.px = p[0]
-                        self.py = p[1]
-                        self.cx = p[2]
-                        self.cy = p[3]
-                        self.pclass = p[4]
-                    except Exception as e:
-                        print("LOG: ERROR", e)
-                        self.error = True
-                elif self.choice == 1:
-                    for x in range(self.mw):
-                        for y in range(self.mh):
-                            if self.map[x, y] == 'spawn_server':
-                                self.px = x
-                                self.py = y
-                            elif self.map[x, y] == 'spawn_client':
-                                self.cx = x
-                                self.cy = y
-
-                    self.msg.sendData('cmd-getclass')
-                    pclass = self.msg.getData()
-                    while pclass is None:
-                        pclass = self.msg.getData()
-                    self.pclass = pclass.replace('--', '')
-
-                for x in range(self.mw):
-                    for y in range(self.mh):
-                        self.prevBlocks[x, y] = 'update'
-                        self.prevObjects[x, y] = 'update'
-                        self.changes[x, y] = None
-                        self.objChanges[x, y] = None
-
-                if not self.error:
-                    self.sc = pygame.display.set_mode((self.mw * self.pw, self.mh * self.ph + self.guisize * self.gui))
-
-                    self.mainLoop()
-                else:
-                    self.msg.sendData('cmd-stop')
-                    self.msg.stopServer()
-            else:
-                self.msg.sendData('cmd-stop')
-                self.msg.stopServer()
-        else:
-            self.msg.sendData('cmd-stop')
-            self.msg.stopServer()
-
-    def renderField(self):
-        for x in range(self.mw):
-            for y in range(self.mh):
-                if self.prevBlocks[x, y] != self.map[x, y] or self.prevBlocks[x, y] == 'update':
-                    if self.map[x, y] is not None:
-                        t = self.mgr.getTexture(self.map[x, y])
-                        t = pygame.transform.scale(t, (self.pw, self.ph))
-                        tR = t.get_rect(topleft=(x * self.pw, y * self.ph))
-                        self.sc.blit(t, tR)
-                        self.prevBlocks[x, y] = self.map[x, y]
-                    else:
-                        pygame.draw.rect(self.sc, (144, 202, 249), (x * self.pw, y * self.ph, self.pw, self.ph))
-                if self.objects[x, y] != self.prevObjects[x, y] or self.prevObjects[x, y] == 'update':
-                    if self.objects[x, y] not in [None, 'spawn_server', 'spawn_client']:
-                        t = self.mgr.getTexture(self.objects[x, y])
-                        t = pygame.transform.scale(t, (self.pw, self.ph))
-                        tR = t.get_rect(topleft=(x * self.pw, y * self.ph))
-                        self.sc.blit(t, tR)
-                        self.prevObjects[x, y] = self.objects[x, y]
-
-    def operateData(self, data):
-        tosend = ''
-        if data is not None:
-            print(data)
-            if 'cmd-' in data:
-                command = data.replace('cmd-', '').replace('--', '')
-                if command == 'getmap':
-                    if self.choice == 1:
-                        tosend = str((self.mw, self.mh, self.map, self.objects))
-                elif command == 'stop':
-                    self.msg.stopServer()
-                    print("LOG: Client-Side error. Stopping server.")
-                elif command == 'getmapchanges':
-                    tosend = str(self.changes)
-                elif command == 'getobjectchanges':
-                    tosend = str(self.objChanges)
-                elif command == 'getplayer':
-                    if self.choice == 0:
-                        tosend = str((self.px, self.py, self.classChoice))
-                    elif self.choice == 1:
-                        tosend = str((self.cx, self.cy, self.px, self.py, self.classChoice))
-                elif command == 'getclass':
-                    tosend = str(self.classChoice)
-        if tosend != '':
-            print(tosend)
-            self.msg.sendData(tosend + '--')
-
-    def renderGUI(self):
-        pass
-
-    def renderPlayers(self):
-        try:
-            mt = self.mgr.getTexture(self.classChoice.lower())
-            mtR = mt.get_rect(topleft=(self.px * self.pw, self.py * self.ph))
-            self.sc.blit(mt, mtR)
-            self.prevBlocks[self.px, self.py] = 'update'
-            self.prevObjects[self.px, self.py] = 'update'
-
-            ct = self.mgr.getTexture(self.pclass)
-            ctR = ct.get_rect(topleft=(self.cx * self.pw, self.cy * self.ph))
-            self.sc.blit(ct, ctR)
-            self.prevBlocks[self.cx, self.cy] = 'update'
-            self.prevObjects[self.cx, self.cy] = 'update'
-        except Exception as e:
-            print("LOG: ERROR:", e)
-            self.msg.stopServer()
-
-    def mainLoop(self):
-        alive = True
-
-        while alive:
-            for i in pygame.event.get():
-                if i.type == pygame.QUIT:
-                    self.msg.stopServer()
-                    alive = False
-
-            try:
-                self.msg.sendData('cmd-getmapchanges')
-                changes = self.msg.getData().replace('--', '')
-                for x in range(self.mw):
-                    for y in range(self.mh):
-                        if changes[x, y] is not None:
-                            self.map[x, y] = changes[x, y]
-                            self.prevBlocks[x, y] = 'update'
-                self.msg.sendData('cmd-getobjchanges')
-                objchanges = self.msg.getData().replace('--', '')
-                for x in range(self.mw):
-                    for y in range(self.mh):
-                        if objchanges[x, y] is not None:
-                            self.objects[x, y] = changes[x, y]
-                            self.prevObjects[x, y] = 'update'
-
-                self.msg.sendData('cmd-getplayer')
-                pl = eval(self.msg.getData())
-                if self.choice == 0:
-                    self.cx = pl[2]
-                    self.cy = pl[3]
-                    self.pclass = pl[4].lower()
-                elif self.choice == 1:
-                    self.cx = pl[0]
-                    self.cy = pl[1]
-                    self.pclass = pl[2].lower()
-            except Exception as e:
-                print("LOG: ERROR:", e)
-                self.msg.stopServer()
-
-            self.renderField()
-            self.renderGUI()
-            self.renderPlayers()
-            self.operateData(self.msg.getData())
-
-            pygame.display.update()
-
-            if not self.msg.getAlive():
-                print('LOG: Exiting game.')
-                alive = False
+    def stopServer(self):
+        self.thread.setAlive(False)
