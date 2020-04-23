@@ -38,6 +38,8 @@ class Server(Thread):
                     print('LOG: Connected to server!')
                     self.connected = True
                     break
+                elif str(e) != '[WinError 10035] A non-blocking socket operation could not be completed immediately':
+                    print('LOG: Client ERROR 42:', e)
 
             timer += 1
 

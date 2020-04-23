@@ -6,7 +6,7 @@ pygame.init()
 class Main:
     def __init__(self, sc, pw, ph, gui):
         self.sc = sc
-        self.font = pygame.font.Font(None, 36)  # Creating font object for future use
+        self.font = pygame.font.Font(None, 36)  # Creating font object for use in future
         self.logofont = pygame.font.SysFont('arial', 36 * gui)
 
         self.choice, self.msg, self.terminate, self.mw, self.mh, self.map, self.objects = None, None, None, None, None, None, None

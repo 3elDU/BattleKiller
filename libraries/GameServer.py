@@ -8,6 +8,9 @@ _map = {}
 _objects = {}
 _players = []
 
+WIDTH = 48
+HEIGHT = 24
+
 
 class _Client(Thread):
     def __init__(self, conn, addr, thread_name, thread_id):
@@ -23,7 +26,11 @@ class _Client(Thread):
         self.tosend = None
         self.close = False
         self.alive = True
+        self.started = False
         self.commands = 0
+
+        self.prevMap = {}
+        self.prevObjects = {}
 
         self.playerClass = ''
         self.playerX = 0
@@ -43,7 +50,11 @@ class _Client(Thread):
         global _map
         tosend = ''
 
-        if data == 'cmd-stop':
+        if data == 'cmd-start':
+            tosend = 'start'
+            self.started = True
+            print(self.addr, ' started game!')
+        elif data == 'cmd-stop':
             self.alive = False
             tosend = 'ok'
             self.close = True
@@ -77,11 +88,33 @@ class _Client(Thread):
                     tosend += str(i)
         elif data == 'cmd-getmap':
             tosend = _map
+            self.prevMap = _map
         elif data == 'cmd-getobjects':
             tosend = _objects
+            self.prevObjects = _objects
+        elif data == 'cmd-getmapchanges':
+            tosend = []
+            for x in range(WIDTH):
+                for y in range(HEIGHT):
+                    if self.prevMap[x, y] != _map:
+                        tosend.append([x, y, map[x, y]])
+        elif data == 'cmd-getobjchanges':
+            tosend = []
+            for x in range(WIDTH):
+                for y in range(HEIGHT):
+                    if self.prevObjects[x, y] != _objects:
+                        tosend.append([x, y, _objects[x, y]])
+        elif data == 'cmd-getnum':
+            tosend = self.index
 
-        print(self.addr, ': Server response :', tosend)
-        self.tosend = str(tosend)
+        tosend = str(tosend)
+
+        if len(tosend) < 50:
+            print(self.addr, ': Server response :', tosend)
+        else:
+            print('Server response is too big!')
+
+        self.tosend = tosend
 
     def run(self):
         global _players
@@ -94,7 +127,7 @@ class _Client(Thread):
                 self.react(self.data)
                 self.commands += 1
 
-                if not [self.playerX, self.playerY, self.playerClass] == [0, 0, None]:
+                if not [self.playerX, self.playerY, self.playerClass] == [0, 0, '']:
                     if not [self.playerX, self.playerY, self.playerClass] in _players:
                         self.index = len(_players)
                         _players.append([self.playerX, self.playerY, self.playerClass])
@@ -111,6 +144,7 @@ class _Client(Thread):
                         pass
 
                 if self.close:
+                    _players.remove([self.playerX, self.playerY, self.playerClass])
                     self.conn.close()
                     self.alive = False
             except socket.error:

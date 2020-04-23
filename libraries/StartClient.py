@@ -5,7 +5,11 @@ print('LOG: CURRENT DIRECTORY:', os.getcwd())
 
 
 class Main:
+    sc: pygame.Surface
+
     def __init__(self, pw, ph, gui):
+        self.sc: pygame.display
+
         pygame.init()
         self.font = pygame.font.Font(None, 36)  # Creating font object for future use
         self.logofont = pygame.font.SysFont('arial', 36 * gui)
@@ -15,6 +19,7 @@ class Main:
         self.gui = gui  # GUI size multiplier
         self.guisize = 60 * gui
         self.terminate = 0
+        self.players = []
         self.prevBlocks = {}
         self.prevObjects = {}
         self.changes = {}
@@ -24,7 +29,11 @@ class Main:
         self.error = False
         self.pclass = None
         self.cont = False
-        self.choice = 0
+        self.playerAlive = True
+        self.opponentAlive = True
+        self.clientNum = -1
+        self.spawnx = 0
+        self.spawny = 0
         self.mw = 48
         self.mh = 24
         self.px = 0
@@ -33,6 +42,7 @@ class Main:
         self.cy = 0
 
         self.sc = pygame.display.set_mode((48 * self.pw, 24 * self.ph + self.guisize))
+        pygame.display.set_caption('BattleKiller ( v. 0.26.6 )')
 
         from libraries import TextureManager
         self.textList = ['brick', 'stone', 'grass', 'doorw', 'doorh', 'glass', 'sniper', 'healer', 'swordsman',
@@ -48,7 +58,13 @@ class Main:
             self.msg = data[0]
             self.terminate = data[1]
             self.classChoice = data[2]
+
+            self.msg.sendData('cmd-start')
+
             while connected is False:
+                if self.msg.getData() == 'start':
+                    connected = True
+
                 for i in pygame.event.get():
                     if i.type == pygame.QUIT:
                         self.terminate = 1
@@ -64,12 +80,57 @@ class Main:
                 self.sc.blit(t, tR)
 
                 pygame.display.update()
-
-                connected = self.msg.isConnected()
-            print("LOG: Connected!")
+            print("LOG: Started responsing!")
         except Exception as e:
             self.terminate = 1
-            print("LOG: ERROR:", e)
+            print("LOG: Game ERROR 72:", e)
+            self.msg.sendData('cmd-stop')
+
+        for x in range(self.mw):
+            for y in range(self.mh):
+                self.prevBlocks[x, y] = 'update'
+                self.prevObjects[x, y] = 'update'
+
+        try:
+            self.msg.sendData('cmd-getmap')
+            m = self.msg.getData()
+            while m is None:
+                m = self.msg.getData()
+
+            self.map = eval(m)
+
+            self.msg.sendData('cmd-getobjects')
+            o = self.msg.getData()
+            while o is None:
+                o = self.msg.getData()
+
+            self.objects = eval(o)
+
+            self.msg.sendData('cmd-getnum')
+            n = self.msg.getData()
+            while n is None:
+                n = self.msg.getData()
+            self.clientNum = int(n)
+
+            if self.clientNum == 0:
+                check = 'client'
+            elif self.clientNum == 1:
+                check = 'client1'
+
+            for x in range(48):
+                for y in range(24):
+                    if self.map[x, y] == check:
+                        self.spawnx = x
+                        self.spawny = y
+
+            self.px = self.spawnx
+            self.py = self.spawny
+
+            self.msg.sendData("cmd-setplayer[{0}, {1}, '{2}']".format(str(self.px), str(self.py), str(self.classChoice)))
+
+            self.mainLoop()
+        except Exception as e:
+            print('LOG: StartClient 133 Error:', e)
 
     def renderField(self):
         for x in range(self.mw):
@@ -91,14 +152,61 @@ class Main:
                         self.sc.blit(t, tR)
                         self.prevObjects[x, y] = self.objects[x, y]
 
-    def operateData(self, data):
-        pass
+    def interact(self):
+        try:
+            self.msg.sendData('cmd-getmapchanges')
+            m = self.msg.getData()
+            i = 0
+            while m is None:
+                m = self.msg.getData()
+                i += 1
+                if i % 1000 == 0:
+                    self.msg.sendData('cmd-getmapchanges')
+
+            for block in eval(m):
+                self.map[block[0], block[1]] = block[2]
+
+            self.msg.sendData('cmd-getobjchanges')
+            o = self.msg.getData()
+            i = 0
+            while o is None:
+                o = self.msg.getData()
+                i += 1
+                if i % 1000 == 0:
+                    self.msg.sendData('cmd-getobjchanges')
+
+            for obj in eval(o):
+                self.objects[obj[0], obj[1]] = obj[2]
+
+            self.msg.sendData('cmd-getplayers')
+            p = self.msg.getData()
+            i = 0
+            while p is None:
+                p = self.msg.getData()
+                i += 1
+                if i % 1000 == 0:
+                    self.msg.sendData('cmd-getplayers')
+
+            self.players = eval(p)
+        except Exception as e:
+            print('interact() error:', e)
 
     def renderGUI(self):
-        pass
+        pygame.draw.rect(self.sc, (255, 255, 255), (0, 24 * self.ph, 48 * self.pw, self.guisize))
 
     def renderPlayers(self):
-        pass
+        try:
+            for player in self.players:
+                x = player[0]
+                y = player[1]
+                c = player[2]
+                t = self.mgr.getTexture(c.lower())
+                tR = t.get_rect(topleft=(x * self.pw, y * self.ph))
+                self.sc.blit(t, tR)
+                self.prevObjects[x, y] = 'update'
+                self.prevObjects[x, y] = 'update'
+        except:
+            print('Failed to render players!')
 
     def mainLoop(self):
         alive = True
@@ -106,8 +214,11 @@ class Main:
         while alive:
             for i in pygame.event.get():
                 if i.type == pygame.QUIT:
+                    self.msg.sendData('cmd-stop')
                     self.msg.stopServer()
                     alive = False
+
+            self.interact()
 
             self.renderField()
             self.renderGUI()

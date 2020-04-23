@@ -24,7 +24,7 @@ if __name__ == '__main__':
         else:
             port = int(port)
 
-        mapName = input('Map name: ')
+        mapName = input('Map name: ') + '.battleMap'
 
     try:
         f = open('maps/' + mapName)
