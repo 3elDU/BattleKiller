@@ -59,8 +59,24 @@ class Main:
 
             self.sc.fill((255, 255, 255))
 
-            self.t1 = self.font.render(self.ip, 1, (0, 0, 0))
-            self.t2 = self.font.render(str(self.port), 1, (0, 0, 0))
+            ip = self.font.render('IP', 1, (0, 0, 0))
+            port = self.font.render('PORT', 1, (0, 0, 0))
+
+            ipr = ip.get_rect(center=(14 * self.pw, 7 * self.ph))
+            portr = port.get_rect(center=(34 * self.pw, 7 * self.ph))
+
+            self.sc.blit(ip, ipr)
+            self.sc.blit(port, portr)
+
+            if self.ip != '':
+                self.t1 = self.font.render(self.ip, 1, (0, 0, 0))
+            else:
+                self.t1 = self.font.render('_', 1, (0, 0, 0))
+
+            if str(self.port) != '':
+                self.t2 = self.font.render(str(self.port), 1, (0, 0, 0))
+            else:
+                self.t2 = self.font.render('_', 1, (0, 0, 0))
 
             self.t1r = self.t1.get_rect(center=(14 * self.pw, 12 * self.ph))
             self.t2r = self.t2.get_rect(center=(34 * self.pw, 12 * self.ph))

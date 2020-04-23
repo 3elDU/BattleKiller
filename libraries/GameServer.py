@@ -4,7 +4,9 @@ from typing import List
 from libraries import Map
 
 
-_map = None
+_map = {}
+_objects = {}
+_players = []
 
 
 class _Client(Thread):
@@ -19,12 +21,14 @@ class _Client(Thread):
 
         self.data = None
         self.tosend = None
+        self.close = False
         self.alive = True
         self.commands = 0
 
         self.playerClass = ''
         self.playerX = 0
         self.playerY = 0
+        self.index = None
 
     def getConn(self):
         return self.conn, self.addr
@@ -40,21 +44,48 @@ class _Client(Thread):
         tosend = ''
 
         if data == 'cmd-stop':
-            self.conn.close()
             self.alive = False
             tosend = 'ok'
-        elif data == 'cmd-setplayer':
+            self.close = True
+        elif 'cmd-setblocks' in data:
             try:
-                d = eval(data)
-                self.playerClass = d[2]
-                self.playerX = d[0]
-                self.playerY = d[1]
+                d = eval(data.replace('cmd-setblocks', ''))
+                for block in d:
+                    _map[block[0], block[1]] = block[2]
             except:
                 tosend = 'again'
+        elif 'cmd-setobjects' in data:
+            try:
+                d = eval(data.replace('cmd-setobjects'))
+                global _objects
+                for obj in d:
+                    _objects[obj[0], obj[1]] = obj[2]
+            except:
+                tosend = 'again'
+        elif 'cmd-setplayer' in data:
+            try:
+                d = eval(data.replace('cmd-setplayer', ''))
+                self.playerClass = d[2]
+                self.playerX = int(d[0])
+                self.playerY = int(d[1])
+            except:
+                tosend = 'again'
+        elif data == 'cmd-getplayers':
+            tosend = ''
+            for i in _players:
+                if i != [self.playerX, self.playerY, self.playerClass]:
+                    tosend += str(i)
+        elif data == 'cmd-getmap':
+            tosend = _map
+        elif data == 'cmd-getobjects':
+            tosend = _objects
 
-        self.tosend = tosend
+        print(self.addr, ': Server response :', tosend)
+        self.tosend = str(tosend)
 
     def run(self):
+        global _players
+
         while self.alive:
             try:
                 self.data = self.conn.recv(131072).decode('utf-8')
@@ -63,12 +94,25 @@ class _Client(Thread):
                 self.react(self.data)
                 self.commands += 1
 
+                if not [self.playerX, self.playerY, self.playerClass] == [0, 0, None]:
+                    if not [self.playerX, self.playerY, self.playerClass] in _players:
+                        self.index = len(_players)
+                        _players.append([self.playerX, self.playerY, self.playerClass])
+                        print(_players)
+                    else:
+                        if not [self.playerX, self.playerY, self.playerClass] == _players[self.index]:
+                            _players[self.index] = [self.playerX, self.playerY, self.playerClass]
+
                 if self.tosend is not None:
                     try:
                         self.conn.send(self.tosend.encode('utf-8'))
                         self.tosend = None
                     except socket.error:
                         pass
+
+                if self.close:
+                    self.conn.close()
+                    self.alive = False
             except socket.error:
                 pass
 
@@ -123,7 +167,7 @@ class _Server(Thread):
                         for thr in self.threads:
                             if not thr.getAlive():
                                 self.threads.remove(thr)
-                                self.clients.remove(self.threads.index(thr))
+                                self.clients.remove((thr.getConn()))
                                 print('Threads -', len(self.threads))
 
                         conn, addr = self.s.accept()
@@ -149,13 +193,17 @@ class _Server(Thread):
 class Server:
     def __init__(self, ip, port, directory, mapName):
         global _map
+        global _objects
 
         self.ip = ip
         self.port = port
         self.dir = directory
         self.mapName = mapName
 
-        _map = Map.Map(mapName, directory=directory)
+        self.map = Map.Map(mapName, directory=directory)
+
+        _map = self.map.getMap()
+        _objects = self.map.getObjects()
 
         print('Creating thread...')
         self.server = _Server(self.ip, self.port, 'server', 0)

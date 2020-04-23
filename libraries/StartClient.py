@@ -71,84 +71,6 @@ class Main:
             self.terminate = 1
             print("LOG: ERROR:", e)
 
-        try:
-            print('LOG: Sending start command...')
-            self.msg.sendData('start')
-            d = self.msg.getData()
-            while d is None:
-                d = self.msg.getData()
-
-            if d != 'start':
-                self.cont = False
-                print('LOG: Failed! Exiting...')
-        except Exception as e:
-            self.msg.sendData('cmd-stop')
-            self.cont = False
-            print('LOG: ERROR:', e)
-
-        print('LOG: Continue:', self.cont)
-
-        if self.cont:
-            if not self.terminate:
-                self.msg.sendData('cmd-getplayer')
-                pdata = self.msg.getData()
-                try:
-                    p = pdata.replace('--', '')
-                    p = eval(p)
-                    self.px = p[0]
-                    self.py = p[1]
-                    self.cx = p[2]
-                    self.cy = p[3]
-                    self.pclass = p[4]
-                except Exception as e:
-                    self.msg.sendData('cmd-stop')
-                    print("LOG: ERROR", e)
-                    self.error = True
-
-                self.msg.sendData('cmd-getclass')
-                pclass = self.msg.getData()
-                while pclass is None:
-                    pclass = self.msg.getData()
-                self.pclass = pclass.replace('--', '')
-
-                self.msg.sendData('cmd-getmap')
-                dta = self.msg.getData()
-                while dta is None:
-                    dta = self.msg.getData()
-
-                try:
-                    self.map = dta[0]
-                    self.objects = dta[1]
-                except Exception as e:
-                    self.msg.sendData('cmd-stop')
-                    self.msg.stopServer()
-                    print('LOG: ERROR:', e)
-                    self.error = True
-
-                for x in range(self.mw):
-                    for y in range(self.mh):
-                        self.prevBlocks[x, y] = 'update'
-                        self.prevObjects[x, y] = 'update'
-                        self.changes[x, y] = None
-                        self.objChanges[x, y] = None
-
-                if not self.error:
-                    self.sc = pygame.display.set_mode((self.mw * self.pw, self.mh * self.ph + self.guisize * self.gui))
-
-                    self.mainLoop()
-                else:
-                    self.msg.sendData('cmd-stop')
-                    print('LOG: Exiting...')
-                    self.msg.stopServer()
-            else:
-                self.msg.sendData('cmd-stop')
-                print('LOG: Exiting...')
-                self.msg.stopServer()
-        else:
-            self.msg.sendData('cmd-stop')
-            print('LOG: Exiting...')
-            self.msg.stopServer()
-
     def renderField(self):
         for x in range(self.mw):
             for y in range(self.mh):
@@ -170,47 +92,13 @@ class Main:
                         self.prevObjects[x, y] = self.objects[x, y]
 
     def operateData(self, data):
-        tosend = ''
-        if data is not None:
-            print(data)
-            if 'cmd-' in data:
-                command = data.replace('cmd-', '').replace('--', '')
-                if command == 'getmap':
-                    tosend = str((self.map, self.objects))
-                elif command == 'stop':
-                    self.msg.stopServer()
-                    print("LOG: Client-Side error. Stopping server.")
-                elif command == 'getmapchanges':
-                    tosend = str(self.changes)
-                elif command == 'getobjectchanges':
-                    tosend = str(self.objChanges)
-                elif command == 'getplayer':
-                    tosend = str((self.px, self.py, self.classChoice))
-                elif command == 'getclass':
-                    tosend = str(self.classChoice)
-        if tosend != '':
-            print(tosend)
-            self.msg.sendData(tosend + '--')
+        pass
 
     def renderGUI(self):
         pass
 
     def renderPlayers(self):
-        try:
-            mt = self.mgr.getTexture(self.classChoice.lower())
-            mtR = mt.get_rect(topleft=(self.px * self.pw, self.py * self.ph))
-            self.sc.blit(mt, mtR)
-            self.prevBlocks[self.px, self.py] = 'update'
-            self.prevObjects[self.px, self.py] = 'update'
-
-            ct = self.mgr.getTexture(self.pclass)
-            ctR = ct.get_rect(topleft=(self.cx * self.pw, self.cy * self.ph))
-            self.sc.blit(ct, ctR)
-            self.prevBlocks[self.cx, self.cy] = 'update'
-            self.prevObjects[self.cx, self.cy] = 'update'
-        except Exception as e:
-            print("LOG: ERROR:", e)
-            self.msg.stopServer()
+        pass
 
     def mainLoop(self):
         alive = True
@@ -221,43 +109,8 @@ class Main:
                     self.msg.stopServer()
                     alive = False
 
-            try:
-                self.msg.sendData('cmd-getmapchanges')
-                changes = self.msg.getData().replace('--', '')
-                for x in range(self.mw):
-                    for y in range(self.mh):
-                        if changes[x, y] is not None:
-                            self.map[x, y] = changes[x, y]
-                            self.prevBlocks[x, y] = 'update'
-                self.msg.sendData('cmd-getobjchanges')
-                objchanges = self.msg.getData().replace('--', '')
-                for x in range(self.mw):
-                    for y in range(self.mh):
-                        if objchanges[x, y] is not None:
-                            self.objects[x, y] = changes[x, y]
-                            self.prevObjects[x, y] = 'update'
-
-                self.msg.sendData('cmd-getplayer')
-                pl = eval(self.msg.getData())
-                if self.choice == 0:
-                    self.cx = pl[2]
-                    self.cy = pl[3]
-                    self.pclass = pl[4].lower()
-                elif self.choice == 1:
-                    self.cx = pl[0]
-                    self.cy = pl[1]
-                    self.pclass = pl[2].lower()
-            except Exception as e:
-                print("LOG: ERROR:", e)
-                self.msg.stopServer()
-
             self.renderField()
             self.renderGUI()
             self.renderPlayers()
-            self.operateData(self.msg.getData())
 
             pygame.display.update()
-
-            if not self.msg.getAlive():
-                print('LOG: Exiting game.')
-                alive = False
