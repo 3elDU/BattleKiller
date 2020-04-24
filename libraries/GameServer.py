@@ -6,7 +6,7 @@ from libraries import Map
 
 _map = {}
 _objects = {}
-_players = []
+_players = {}
 
 WIDTH = 48
 HEIGHT = 24
@@ -35,7 +35,6 @@ class _Client(Thread):
         self.playerClass = ''
         self.playerX = 0
         self.playerY = 0
-        self.index = None
 
     def getConn(self):
         return self.conn, self.addr
@@ -49,72 +48,78 @@ class _Client(Thread):
     def react(self, data):
         global _map
         tosend = ''
+        show = True
 
-        if data == 'cmd-start':
-            tosend = 'start'
-            self.started = True
-            print(self.addr, ' started game!')
-        elif data == 'cmd-stop':
-            self.alive = False
-            tosend = 'ok'
-            self.close = True
-        elif 'cmd-setblocks' in data:
-            try:
-                d = eval(data.replace('cmd-setblocks', ''))
-                for block in d:
-                    _map[block[0], block[1]] = block[2]
-            except:
-                tosend = 'again'
-        elif 'cmd-setobjects' in data:
-            try:
-                d = eval(data.replace('cmd-setobjects'))
-                global _objects
-                for obj in d:
-                    _objects[obj[0], obj[1]] = obj[2]
-            except:
-                tosend = 'again'
-        elif 'cmd-setplayer' in data:
-            try:
-                d = eval(data.replace('cmd-setplayer', ''))
-                self.playerClass = d[2]
-                self.playerX = int(d[0])
-                self.playerY = int(d[1])
-            except:
-                tosend = 'again'
-        elif data == 'cmd-getplayers':
-            tosend = ''
-            for i in _players:
-                if i != [self.playerX, self.playerY, self.playerClass]:
-                    tosend += str(i)
-        elif data == 'cmd-getmap':
-            tosend = _map
-            self.prevMap = _map
-        elif data == 'cmd-getobjects':
-            tosend = _objects
-            self.prevObjects = _objects
-        elif data == 'cmd-getmapchanges':
-            tosend = []
-            for x in range(WIDTH):
-                for y in range(HEIGHT):
-                    if self.prevMap[x, y] != _map:
-                        tosend.append([x, y, map[x, y]])
-        elif data == 'cmd-getobjchanges':
-            tosend = []
-            for x in range(WIDTH):
-                for y in range(HEIGHT):
-                    if self.prevObjects[x, y] != _objects:
-                        tosend.append([x, y, _objects[x, y]])
-        elif data == 'cmd-getnum':
-            tosend = self.index
+        try:
+            if data == 'cmd-start':
+                tosend = 'start'
+                self.started = True
+                print(self.addr, ' started game!')
+            elif data == 'cmd-stop':
+                self.alive = False
+                tosend = 'ok'
+                self.close = True
+            elif 'cmd-setblocks' in data:
+                try:
+                    d = eval(data.replace('cmd-setblocks', ''))
+                    for block in d:
+                        _map[block[0], block[1]] = block[2]
+                except:
+                    tosend = 'again'
+            elif 'cmd-setobjects' in data:
+                try:
+                    d = eval(data.replace('cmd-setobjects'))
+                    global _objects
+                    for obj in d:
+                        _objects[obj[0], obj[1]] = obj[2]
+                except:
+                    tosend = 'again'
+            elif 'cmd-setplayer' in data:
+                try:
+                    d = eval(data.replace('cmd-setplayer', ''))
+                    self.playerClass = d[2]
+                    self.playerX = int(d[0])
+                    self.playerY = int(d[1])
+                except:
+                    tosend = 'again'
+            elif data == 'cmd-getplayers':
+                tosend = []
+                for i in _players:
+                    if _players[i] != [self.playerX, self.playerY, self.playerClass]:
+                        tosend += str(_players[i])
+            elif data == 'cmd-getmap':
+                tosend = _map
+                self.prevMap = _map
+            elif data == 'cmd-getobjects':
+                tosend = _objects
+                self.prevObjects = _objects
+            elif data == 'cmd-getmapchanges':
+                tosend = []
+                for x in range(WIDTH):
+                    for y in range(HEIGHT):
+                        if self.prevMap[x, y] != _map[x, y]:
+                            tosend.append([x, y, _map[x, y]])
+            elif data == 'cmd-getobjchanges':
+                tosend = []
+                for x in range(WIDTH):
+                    for y in range(HEIGHT):
+                        if self.prevObjects[x, y] != _objects[x, y]:
+                            tosend.append([x, y, _objects[x, y]])
+            elif data == 'cmd-getnum':
+                tosend = self.thread_id
 
-        tosend = str(tosend)
+            tosend = str(tosend)
 
-        if len(tosend) < 50:
-            print(self.addr, ': Server response :', tosend)
-        else:
-            print('Server response is too big!')
+            if len(tosend) < 50:
+                if show:
+                    print(self.addr, ': Server response :', tosend)
+            else:
+                print('Server response is too big!')
 
-        self.tosend = tosend
+            self.tosend = tosend
+        except Exception as e:
+            print('Failed to interact in Thread', self.thread_id)
+            print('Exception:', e)
 
     def run(self):
         global _players
@@ -128,13 +133,7 @@ class _Client(Thread):
                 self.commands += 1
 
                 if not [self.playerX, self.playerY, self.playerClass] == [0, 0, '']:
-                    if not [self.playerX, self.playerY, self.playerClass] in _players:
-                        self.index = len(_players)
-                        _players.append([self.playerX, self.playerY, self.playerClass])
-                        print(_players)
-                    else:
-                        if not [self.playerX, self.playerY, self.playerClass] == _players[self.index]:
-                            _players[self.index] = [self.playerX, self.playerY, self.playerClass]
+                    _players[self.thread_id] = [self.playerX, self.playerY, self.playerClass]
 
                 if self.tosend is not None:
                     try:
@@ -144,7 +143,7 @@ class _Client(Thread):
                         pass
 
                 if self.close:
-                    _players.remove([self.playerX, self.playerY, self.playerClass])
+                    del _players[self.thread_id]
                     self.conn.close()
                     self.alive = False
             except socket.error:
@@ -211,7 +210,7 @@ class _Server(Thread):
 
                             self.clients.append((conn, addr))
 
-                            thread = _Client(conn, addr, 'client', len(self.clients))
+                            thread = _Client(conn, addr, 'client', len(self.clients)-1)
                             thread.start()
                             self.threads.append(thread)
                             print('Threads -', len(self.threads))
