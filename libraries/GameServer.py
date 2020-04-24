@@ -35,6 +35,7 @@ class _Client(Thread):
         self.playerClass = ''
         self.playerX = 0
         self.playerY = 0
+        self.rotation = 0
 
     def getConn(self):
         return self.conn, self.addr
@@ -80,13 +81,15 @@ class _Client(Thread):
                     self.playerClass = d[2]
                     self.playerX = int(d[0])
                     self.playerY = int(d[1])
-                except:
+                    self.rotation = int(d[3])
+                except Exception as e:
+                    print(self.addr, ' : Exception:', e)
                     tosend = 'again'
             elif data == 'cmd-getplayers':
                 tosend = []
                 for i in _players:
-                    if _players[i] != [self.playerX, self.playerY, self.playerClass]:
-                        tosend += str(_players[i])
+                    if _players[i] != [self.playerX, self.playerY, self.playerClass, self.rotation]:
+                        tosend += _players[i]
             elif data == 'cmd-getmap':
                 tosend = _map
                 self.prevMap = _map
@@ -133,7 +136,7 @@ class _Client(Thread):
                 self.commands += 1
 
                 if not [self.playerX, self.playerY, self.playerClass] == [0, 0, '']:
-                    _players[self.thread_id] = [self.playerX, self.playerY, self.playerClass]
+                    _players[self.thread_id] = [self.playerX, self.playerY, self.playerClass, self.rotation]
 
                 if self.tosend is not None:
                     try:
@@ -143,11 +146,12 @@ class _Client(Thread):
                         pass
 
                 if self.close:
-                    del _players[self.thread_id]
-                    self.conn.close()
                     self.alive = False
             except socket.error:
                 pass
+
+        del _players[self.thread_id]
+        self.conn.close()
 
         self.conn.close()
 

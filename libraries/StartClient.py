@@ -16,6 +16,8 @@ class _Responser(Thread):
         self.spawny = None
         self.classChoice = classChoice
 
+        self.rotation = 0
+
         Thread.__init__(self)
 
         self.isStarted = False
@@ -40,7 +42,7 @@ class _Responser(Thread):
 
             self.map = eval(m)
 
-            time.sleep(0.2)
+            time.sleep(1)
 
             self.msg.sendData('cmd-getobjects')
             o = self.msg.getData()
@@ -53,10 +55,10 @@ class _Responser(Thread):
 
             self.objects = eval(o)
 
-            time.sleep(0.2)
+            time.sleep(1)
 
-            self.msg.sendData("cmd-setplayer[1, 1, 'Healer']")
-            time.sleep(0.5)
+            self.msg.sendData("cmd-setplayer[1, 1, 'Healer', 0]")
+            time.sleep(1)
 
             self.msg.sendData('cmd-getnum')
             n = self.msg.getData()
@@ -83,12 +85,12 @@ class _Responser(Thread):
             self.px = self.spawnx
             self.py = self.spawny
 
-            time.sleep(0.2)
+            time.sleep(1)
 
-            print("cmd-setplayer" + str([self.px, self.py, self.classChoice]))
-            self.msg.sendData("cmd-setplayer" + str([self.px, self.py, self.classChoice]))
+            print("cmd-setplayer" + str([self.px, self.py, self.classChoice, self.rotation]))
+            self.msg.sendData("cmd-setplayer" + str([self.px, self.py, self.classChoice, self.rotation]))
 
-            time.sleep(0.2)
+            time.sleep(0.05)
         except Exception as e:
             error = 1
             print('LOG: startMessaging Error:', e)
@@ -106,16 +108,24 @@ class _Responser(Thread):
         self.map = toSet[0]
         self.objects = toSet[1]
 
+    def setPlayer(self, player):
+        self.px, self.py, self.classChoice, self.rotation = player
+
     def getPlayers(self):
         return self.players
+
+    def getSpawn(self):
+        return self.spawnx, self.spawny
 
     def stop(self):
         self.alive = False
 
     def run(self):
         print('Thread started!')
-
         self.startMessaging()
+        while not self.isStarted:
+            self.startMessaging()
+
         if self.isStarted:
             while self.alive:
                 try:
@@ -128,10 +138,10 @@ class _Responser(Thread):
                         if i % 100000 == 0:
                             self.msg.sendData('cmd-getmapchanges')
 
+                    time.sleep(0.1)
+
                     for block in eval(m):
                         self.map[block[0], block[1]] = block[2]
-
-                    time.sleep(0.02)
 
                     self.msg.sendData('cmd-getobjchanges')
                     o = self.msg.getData()
@@ -145,7 +155,11 @@ class _Responser(Thread):
                     for obj in eval(o):
                         self.objects[obj[0], obj[1]] = obj[2]
 
-                    time.sleep(0.02)
+                    time.sleep(0.1)
+
+                    self.msg.sendData("cmd-setplayer" + str([self.px, self.py, self.classChoice, self.rotation]))
+
+                    time.sleep(0.1)
 
                     self.msg.sendData('cmd-getplayers')
                     p = self.msg.getData()
@@ -156,9 +170,11 @@ class _Responser(Thread):
                         if i % 100000 == 0:
                             self.msg.sendData('cmd-getplayers')
 
-                    self.players = eval(p)
+                    if eval(p):
+                        self.players = eval(p)
 
-                    time.sleep(0.02)
+                    time.sleep(0.1)
+
                 except Exception as e:
                     print('_Responser error:', e)
 
@@ -178,7 +194,7 @@ class Main:
         self.gui = gui  # GUI size multiplier
         self.guisize = 60 * gui
         self.terminate = 0
-        self.players = []
+        self.enemy = []
         self.prevBlocks = {}
         self.prevObjects = {}
         self.changes = {}
@@ -197,11 +213,14 @@ class Main:
         self.mh = 24
         self.px = 0
         self.py = 0
+        self.rotation = 0
         self.cx = 0
         self.cy = 0
 
         self.sc = pygame.display.set_mode((48 * self.pw, 24 * self.ph + self.guisize))
-        pygame.display.set_caption('BattleKiller ( v. 0.26.6 )')
+        pygame.display.set_caption('BattleKiller ( v. 0.26.9 )')
+        self.icon = pygame.image.load('textures/icon.png').convert_alpha()
+        pygame.display.set_icon(self.icon)
 
         from libraries import TextureManager
         self.textList = ['brick', 'stone', 'grass', 'doorw', 'doorh', 'glass', 'sniper', 'healer', 'swordsman',
@@ -259,19 +278,35 @@ class Main:
             for i in pygame.event.get():
                 if i.type == pygame.QUIT:
                     self.msg.sendData('cmd-stop')
+                    self.msg.stopServer()
                     self.ms.stop()
 
+            self.sc.fill((255, 255, 255))
+
             t = self.font.render('Handling connection with server...', 1, (0, 0, 0))
-            tR = t.get_rect(center=(24 * self.mw, 12 * self.mh))
+            tR = t.get_rect(center=(24 * self.pw, 12 * self.ph))
             self.sc.blit(t, tR)
 
             pygame.display.update()
 
             started = self.ms.getStarted()
 
+        s = self.ms.getSpawn()
+        self.spawnx = s[0]
+        self.spawny = s[1]
+
+        self.px = self.spawnx
+        self.py = self.spawny
+
         print('Handled connection!')
 
         self.mainLoop()
+        pygame.display.quit()
+        if self.ms.is_alive():
+            self.ms.alive = False
+        if self.msg.getAlive():
+            self.msg.thread.alive = False
+        exit()
 
     def renderField(self):
         for x in range(self.mw):
@@ -296,19 +331,32 @@ class Main:
     def renderGUI(self):
         pygame.draw.rect(self.sc, (255, 255, 255), (0, 24 * self.ph, 48 * self.pw, self.guisize))
 
-    def renderPlayers(self):
-        try:
-            for player in self.players:
-                x = player[0]
-                y = player[1]
-                c = player[2]
-                t = self.mgr.getTexture(c.lower())
-                tR = t.get_rect(topleft=(x * self.pw, y * self.ph))
-                self.sc.blit(t, tR)
+    def fillUpdate(self, fromx, fromy, tox, toy):
+        for x in range(fromx, tox):
+            for y in range(fromy, toy):
                 self.prevBlocks[x, y] = 'update'
                 self.prevObjects[x, y] = 'update'
+
+    def renderPlayers(self):
+        try:
+            t = pygame.transform.scale(self.mgr.getTexture(self.classChoice.lower()), (self.pw * 2, self.ph * 2))
+            t = pygame.transform.rotate(t, self.rotation)
+            tR = t.get_rect(topleft=((self.px * self.pw) - self.pw // 2, (self.py * self.ph) - self.ph // 2))
+            self.sc.blit(t, tR)
+
+            self.fillUpdate(self.px - 1, self.py - 1, self.px + 2, self.py + 2)
+
+            enemy = self.enemy
+            print(enemy)
+
+            e = pygame.transform.scale(self.mgr.getTexture(enemy[2].lower()), (self.pw * 2, self.ph * 2))
+            e = pygame.transform.rotate(e, enemy[3])
+            eR = e.get_rect(topleft=((enemy[0] * self.pw) - self.pw // 2, enemy[1] * self.ph))
+            self.sc.blit(e, eR)
+
+            self.fillUpdate(enemy[0] - 1, enemy[1] - 1, enemy[0] + 2, enemy[1] + 2)
         except:
-            print('Failed to render players!')
+            pass
 
     def mainLoop(self):
         alive = True
@@ -316,16 +364,39 @@ class Main:
         while alive:
             for i in pygame.event.get():
                 if i.type == pygame.QUIT:
-                    alive = False
+                    self.ms.stop()
+                    time.sleep(1)
                     self.msg.sendData('cmd-stop')
                     self.msg.stopServer()
+                    alive = False
 
-            self.map = self.ms.getMap()[0]
-            self.objects = self.ms.getMap()[1]
-            self.players = self.ms.getPlayers()
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_w]:
+                self.rotation = 0
+            elif keys[pygame.K_a]:
+                self.rotation = 90
+            elif keys[pygame.K_s]:
+                self.rotation = 180
+            elif keys[pygame.K_d]:
+                self.rotation = -90
 
-            self.renderField()
-            self.renderGUI()
-            self.renderPlayers()
+            if not alive:
+                break
+
+            try:
+                self.map = self.ms.getMap()[0]
+                self.objects = self.ms.getMap()[1]
+                self.enemy = self.ms.getPlayers()
+
+                self.ms.setPlayer([self.px, self.py, self.classChoice, self.rotation])
+            except:
+                pass
+
+            try:
+                self.renderField()
+                self.renderGUI()
+                self.renderPlayers()
+            except Exception as e:
+                print('Rendering error:', e)
 
             pygame.display.update()
