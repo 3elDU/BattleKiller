@@ -27,6 +27,7 @@ class _Client(Thread):
         self.close = False
         self.alive = True
         self.started = False
+        self.step = False
         self.commands = 0
 
         self.prevMap = {}
@@ -49,106 +50,122 @@ class _Client(Thread):
     def react(self, data):
         global _map
         tosend = ''
-        show = True
 
         try:
-            if data == 'cmd-start':
-                tosend = 'start'
-                self.started = True
-                print(self.addr, ' started game!')
-            elif data == 'cmd-stop':
-                self.alive = False
-                tosend = 'ok'
-                self.close = True
-            elif 'cmd-setblocks' in data:
+            data = data.split('--')
+
+            for i in data:
+                show = True
                 try:
-                    d = eval(data.replace('cmd-setblocks', ''))
-                    for block in d:
-                        _map[block[0], block[1]] = block[2]
-                except:
-                    tosend = 'again'
-            elif 'cmd-setobjects' in data:
-                try:
-                    d = eval(data.replace('cmd-setobjects'))
-                    global _objects
-                    for obj in d:
-                        _objects[obj[0], obj[1]] = obj[2]
-                except:
-                    tosend = 'again'
-            elif 'cmd-setplayer' in data:
-                try:
-                    d = eval(data.replace('cmd-setplayer', ''))
-                    self.playerClass = d[2]
-                    self.playerX = int(d[0])
-                    self.playerY = int(d[1])
-                    self.rotation = int(d[3])
+                    if i == 'cmd-start':
+                        tosend = 'start'
+                        self.started = True
+                        print(self.addr, ' started game!')
+                    elif i == 'cmd-stop':
+                        self.alive = False
+                        tosend = 'ok'
+                        self.close = True
+                    elif 'cmd-setblocks' in data:
+                        try:
+                            d = eval(i.replace('cmd-setblocks', ''))
+                            for block in d:
+                                _map[block[0], block[1]] = block[2]
+                        except:
+                            tosend = 'again'
+                    elif 'cmd-setobjects' in data:
+                        try:
+                            d = eval(i.replace('cmd-setobjects'))
+                            global _objects
+                            for obj in d:
+                                _objects[obj[0], obj[1]] = obj[2]
+                        except:
+                            tosend = 'again'
+                    elif 'cmd-setplayer' in i:
+                        try:
+                            d = eval(i.replace('cmd-setplayer', ''))
+                            self.playerClass = d[2]
+                            self.playerX = int(d[0])
+                            self.playerY = int(d[1])
+                            self.rotation = int(d[3])
+                        except Exception as e:
+                            print(self.addr, ' : Exception:', e)
+                            tosend = 'again'
+                    elif i == 'cmd-getplayers':
+                        tosend = []
+                        for x in _players:
+                            if _players[x] != [self.playerX, self.playerY, self.playerClass, self.rotation]:
+                                tosend += _players[x]
+                    elif i == 'cmd-getmap':
+                        tosend = _map
+                        self.prevMap = _map
+                    elif i == 'cmd-getobjects':
+                        tosend = _objects
+                        self.prevObjects = _objects
+                    elif i == 'cmd-getmapchanges':
+                        tosend = []
+                        for x in range(WIDTH):
+                            for y in range(HEIGHT):
+                                if self.prevMap[x, y] != _map[x, y]:
+                                    tosend.append([x, y, _map[x, y]])
+                    elif i == 'cmd-getobjchanges':
+                        tosend = []
+                        for x in range(WIDTH):
+                            for y in range(HEIGHT):
+                                if self.prevObjects[x, y] != _objects[x, y]:
+                                    tosend.append([x, y, _objects[x, y]])
+                    elif i == 'cmd-getnum':
+                        tosend = self.thread_id
+
+                    tosend = str(tosend) + '--'
+
+                    if len(tosend) < 50:
+                        if show:
+                            print(self.addr, ': Server response :', tosend)
+                    else:
+                        print('Server response is too big!')
+
+                    self.tosend += tosend
                 except Exception as e:
-                    print(self.addr, ' : Exception:', e)
-                    tosend = 'again'
-            elif data == 'cmd-getplayers':
-                tosend = []
-                for i in _players:
-                    if _players[i] != [self.playerX, self.playerY, self.playerClass, self.rotation]:
-                        tosend += _players[i]
-            elif data == 'cmd-getmap':
-                tosend = _map
-                self.prevMap = _map
-            elif data == 'cmd-getobjects':
-                tosend = _objects
-                self.prevObjects = _objects
-            elif data == 'cmd-getmapchanges':
-                tosend = []
-                for x in range(WIDTH):
-                    for y in range(HEIGHT):
-                        if self.prevMap[x, y] != _map[x, y]:
-                            tosend.append([x, y, _map[x, y]])
-            elif data == 'cmd-getobjchanges':
-                tosend = []
-                for x in range(WIDTH):
-                    for y in range(HEIGHT):
-                        if self.prevObjects[x, y] != _objects[x, y]:
-                            tosend.append([x, y, _objects[x, y]])
-            elif data == 'cmd-getnum':
-                tosend = self.thread_id
-
-            tosend = str(tosend)
-
-            if len(tosend) < 50:
-                if show:
-                    print(self.addr, ': Server response :', tosend)
-            else:
-                print('Server response is too big!')
-
-            self.tosend = tosend
+                    print('Failed to iterate in Thread', self.thread_id)
+                    print('Exception:', e)
         except Exception as e:
             print('Failed to interact in Thread', self.thread_id)
             print('Exception:', e)
+
+    def oneStep(self):
+        self.step = True
+
+    def getStep(self):
+        return self.step
 
     def run(self):
         global _players
 
         while self.alive:
-            try:
-                self.data = self.conn.recv(131072).decode('utf-8')
-                print(self.addr, ':', self.data)
+            if self.step:
+                try:
+                    self.data = self.conn.recv(131072).decode('utf-8')
+                    print(self.addr, ':', self.data)
 
-                self.react(self.data)
-                self.commands += 1
+                    self.react(self.data)
+                    self.commands += 1
 
-                if not [self.playerX, self.playerY, self.playerClass] == [0, 0, '']:
-                    _players[self.thread_id] = [self.playerX, self.playerY, self.playerClass, self.rotation]
+                    if not [self.playerX, self.playerY, self.playerClass] == [0, 0, '']:
+                        _players[self.thread_id] = [self.playerX, self.playerY, self.playerClass, self.rotation]
 
-                if self.tosend is not None:
-                    try:
-                        self.conn.send(self.tosend.encode('utf-8'))
-                        self.tosend = None
-                    except socket.error:
-                        pass
+                    if self.tosend is not None:
+                        try:
+                            self.conn.send(self.tosend.encode('utf-8'))
+                            self.tosend = None
+                        except socket.error:
+                            pass
 
-                if self.close:
-                    self.alive = False
-            except socket.error:
-                pass
+                    if self.close:
+                        self.alive = False
+                except socket.error:
+                    pass
+                finally:
+                    self.step = False
 
         del _players[self.thread_id]
         self.conn.close()
@@ -218,6 +235,12 @@ class _Server(Thread):
                             thread.start()
                             self.threads.append(thread)
                             print('Threads -', len(self.threads))
+
+                        for thr in self.threads:
+                            if not thr.getStep():
+                                thr.oneStep()
+                                while thr.getStep():
+                                    pass
                     except socket.error:
                         pass
             except Exception as e:

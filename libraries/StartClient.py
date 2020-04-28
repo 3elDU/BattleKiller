@@ -23,35 +23,38 @@ class _Responser(Thread):
         self.isStarted = False
         self.alive = True
 
+        self.lastTime = 0
+
         self.map = {}
         self.objects = {}
         self.players = []
+        self.prev = [0, 0, '', 0]
 
     def startMessaging(self):
         error = 0
 
         try:
             self.msg.sendData('cmd-getmap')
-            m = self.msg.getData()
+            m = self.msg.getData()[0]
             i = 0
             while m is None:
                 m = self.msg.getData()
                 i += 1
                 if i % 100000 == 0:
-                    self.msg.sendData('cmd-getmap')
+                    error = 1
 
             self.map = eval(m)
 
             time.sleep(1)
 
             self.msg.sendData('cmd-getobjects')
-            o = self.msg.getData()
+            o = self.msg.getData()[0]
             i = 0
             while o is None:
                 o = self.msg.getData()
                 i += 1
                 if i % 100000 == 0:
-                    self.msg.sendData('cmd-getobjects')
+                    error = 1
 
             self.objects = eval(o)
 
@@ -61,13 +64,13 @@ class _Responser(Thread):
             time.sleep(1)
 
             self.msg.sendData('cmd-getnum')
-            n = self.msg.getData()
+            n = self.msg.getData()[0]
             i = 0
             while n is None:
                 n = self.msg.getData()
                 i += 1
                 if i % 100000 == 0:
-                    self.msg.sendData('cmd-getnum')
+                    error = 1
 
             self.clientNum = int(n)
 
@@ -90,7 +93,7 @@ class _Responser(Thread):
             print("cmd-setplayer" + str([self.px, self.py, self.classChoice, self.rotation]))
             self.msg.sendData("cmd-setplayer" + str([self.px, self.py, self.classChoice, self.rotation]))
 
-            time.sleep(0.05)
+            time.sleep(1)
         except Exception as e:
             error = 1
             print('LOG: startMessaging Error:', e)
@@ -126,22 +129,63 @@ class _Responser(Thread):
         while not self.isStarted:
             self.startMessaging()
 
+        self.lastTime = time.perf_counter()
+
         if self.isStarted:
             while self.alive:
-                try:
-                    self.msg.sendData('cmd-getmapchanges')
-                    m = self.msg.getData()
-                    i = 0
-                    while m is None:
-                        m = self.msg.getData()
-                        i += 1
-                        if i % 100000 == 0:
-                            self.msg.sendData('cmd-getmapchanges')
+                if time.perf_counter() - self.lastTime >= 0.5:
+                    try:
+                        failed = False
+
+                        self.msg.sendData('cmd-getplayers')
+                        p = self.msg.getData()
+                        i = 0
+                        while p is None:
+                            p = self.msg.getData()
+                            i += 1
+                            if i % 100000 == 0:
+                                failed = True
+                                break
+
+                        if not failed:
+                            for it in p:
+                                try:
+                                    if eval(it):
+                                        self.players = eval(it)
+                                        print(self.players)
+                                except:
+                                    pass
+                    except Exception as e:
+                        print('cmd-getplayers error:', e)
 
                     time.sleep(0.1)
 
-                    for block in eval(m):
-                        self.map[block[0], block[1]] = block[2]
+                    try:
+                        failed = False
+
+                        self.msg.sendData('cmd-getmapchanges')
+                        m = self.msg.getData()
+                        i = 0
+                        while m is None:
+                            m = self.msg.getData()
+                            i += 1
+                            if i % 100000 == 0:
+                                failed = True
+                                break
+                    except Exception as e:
+                        print(e)
+
+                    time.sleep(0.1)
+
+                    if not failed:
+                        for it in m:
+                            try:
+                                for block in eval(it):
+                                    self.map[block[0], block[1]] = block[2]
+                            except:
+                                pass
+
+                    failed = False
 
                     self.msg.sendData('cmd-getobjchanges')
                     o = self.msg.getData()
@@ -150,33 +194,25 @@ class _Responser(Thread):
                         o = self.msg.getData()
                         i += 1
                         if i % 100000 == 0:
-                            self.msg.sendData('cmd-getobjchanges')
+                            break
 
-                    for obj in eval(o):
-                        self.objects[obj[0], obj[1]] = obj[2]
-
-                    time.sleep(0.1)
-
-                    self.msg.sendData("cmd-setplayer" + str([self.px, self.py, self.classChoice, self.rotation]))
-
-                    time.sleep(0.1)
-
-                    self.msg.sendData('cmd-getplayers')
-                    p = self.msg.getData()
-                    i = 0
-                    while p is None:
-                        p = self.msg.getData()
-                        i += 1
-                        if i % 100000 == 0:
-                            self.msg.sendData('cmd-getplayers')
-
-                    if eval(p):
-                        self.players = eval(p)
+                    if not failed:
+                        for it in o:
+                            try:
+                                for obj in eval(it):
+                                    self.objects[obj[0], obj[1]] = obj[2]
+                            except:
+                                pass
 
                     time.sleep(0.1)
 
-                except Exception as e:
-                    print('_Responser error:', e)
+                    if [self.px, self.py, self.classChoice, self.rotation] != self.prev:
+                        self.msg.sendData("cmd-setplayer" + str([self.px, self.py, self.classChoice, self.rotation]))
+                        self.prev = [self.px, self.py, self.classChoice, self.rotation]
+
+                    time.sleep(0.1)
+
+                self.lastTime = time.perf_counter()
 
 
 class Main:
@@ -218,7 +254,7 @@ class Main:
         self.cy = 0
 
         self.sc = pygame.display.set_mode((48 * self.pw, 24 * self.ph + self.guisize))
-        pygame.display.set_caption('BattleKiller ( v. 0.26.9 )')
+        pygame.display.set_caption('BattleKiller ( v. 0.26.10 )')
         self.icon = pygame.image.load('textures/icon.png').convert_alpha()
         pygame.display.set_icon(self.icon)
 
@@ -346,8 +382,7 @@ class Main:
 
             self.fillUpdate(self.px - 1, self.py - 1, self.px + 2, self.py + 2)
 
-            enemy = self.enemy
-            print(enemy)
+            enemy = self.ms.getPlayers()
 
             e = pygame.transform.scale(self.mgr.getTexture(enemy[2].lower()), (self.pw * 2, self.ph * 2))
             e = pygame.transform.rotate(e, enemy[3])
@@ -386,7 +421,6 @@ class Main:
             try:
                 self.map = self.ms.getMap()[0]
                 self.objects = self.ms.getMap()[1]
-                self.enemy = self.ms.getPlayers()
 
                 self.ms.setPlayer([self.px, self.py, self.classChoice, self.rotation])
             except:

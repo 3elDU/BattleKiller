@@ -47,7 +47,7 @@ class Server(Thread):
         return self.connected
 
     def getdata(self):
-        toreturn = self.data
+        toreturn = self.data.split('--')
         self.data = None
         return toreturn
 
@@ -66,6 +66,7 @@ class Server(Thread):
 
                 try:
                     if self.tosend is not None:
+                        self.tosend = str(self.tosend) + '--'
                         self.s.send(self.tosend.encode('utf-8'))
                         self.tosend = None
                 except socket.error:

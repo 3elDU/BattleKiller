@@ -2,7 +2,7 @@ from libraries import GameServer
 import socket
 import sys
 
-print('BattleKiller Server ( Alpha 0.2 )')
+print('BattleKiller Server ( Alpha 0.3 )')
 
 if __name__ == '__main__':
     if len(sys.argv) == 4:
